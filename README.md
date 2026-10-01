@@ -12,8 +12,9 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 
 | | |
 |---|---|
+| **Live demo** | **<https://client-project-tracker-psi.vercel.app>** (Vercel + TiDB Cloud, free tier; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Tests | 133 backend (PHPUnit) · 92 frontend (Vitest) |
-| Demo login | `demo@example.com` / `password` (local review only) |
+| Demo login | `demo@example.com` / `password` (shared demo account; data may be reset) |
 | API base URL | `http://localhost:8000/api` |
 | App URL | `http://localhost:4200` (`http://localhost:8080` with Docker) |
 | API spec | [`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.1) |

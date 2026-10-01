@@ -1,6 +1,6 @@
 # Deploying to Vercel (free tier)
 
-A live demo runs on free services only:
+A live demo runs on free services only: **<https://client-project-tracker-psi.vercel.app>** (API: <https://client-project-tracker-api-seven.vercel.app>).
 
 | Part | Host | Notes |
 |---|---|---|
@@ -51,8 +51,8 @@ APP_ENV=production
 APP_DEBUG=false
 APP_KEY=<output of: php artisan key:generate --show>
 APP_URL=https://client-project-tracker-api-seven.vercel.app
-FRONTEND_URL=https://client-project-tracker.vercel.app
-SANCTUM_STATEFUL_DOMAINS=client-project-tracker.vercel.app
+FRONTEND_URL=https://client-project-tracker-psi.vercel.app
+SANCTUM_STATEFUL_DOMAINS=client-project-tracker-psi.vercel.app
 TRUSTED_PROXIES=*
 
 DB_CONNECTION=mysql
@@ -107,3 +107,6 @@ Project names are global; if one is taken Vercel appends a suffix. Then:
 | DB connection error mentioning SSL | `MYSQL_ATTR_SSL_CA` missing or wrong path |
 
 The demo account is public; anyone with the link can edit data. Re-run step 2 to reset it.
+
+**TiDB note:** auto-increment ids are allocated in batches per node, so new projects get large, non-sequential ids
+(e.g. `30002` after the seeded `1`–`12`). Ids stay unique; the API never assumes they are consecutive.
