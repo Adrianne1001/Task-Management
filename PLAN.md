@@ -32,7 +32,7 @@ Every requirement below must map to code + a test before submission.
 | V3 | Status must be valid | `Rule::enum(ProjectStatus::class)` in `ProjectRequest` | `ProjectValidationTest` |
 | V4 | Priority must be valid | `Rule::enum(ProjectPriority::class)` in `ProjectRequest` | `ProjectValidationTest` |
 | V5 | Due Date ≥ Start Date | `after_or_equal:startDate` (when start date valid) + Angular cross-field validator | `ProjectValidationTest` (+ Angular unit test §7) |
-| V6 | Invalid requests → meaningful errors | Consistent JSON error envelope (422/404/405/429/500) | Test |
+| V6 | Invalid requests → meaningful errors | `App\Exceptions\ApiExceptionRenderer` — one `{ message, errors? }` envelope (401/404/405/419/422/429/500) | `ErrorHandlingTest`, `AuthTest` |
 | S1 | Public GitHub repo, setup/run instructions, technical reflection, AI disclosure (SUBMISSION/README) | Root `README.md`, `docs/` | Checklist §9 |
 | D1 | Seed data = `test_data.json` (12 projects, ids preserved) | `ProjectSeeder` + `database/data/projects.json` | Seeder test |
 
@@ -94,19 +94,19 @@ Every requirement below must map to code + a test before submission.
 
 ## 5. Backend — Security & Error Handling
 
-- [ ] Global JSON error rendering in `bootstrap/app.php` → consistent envelope `{ "message": "...", "errors": { field: [..] } }`
-  - `ModelNotFoundException`/`NotFoundHttpException` → 404 "Project not found."
-  - `ValidationException` → 422 · `MethodNotAllowed` → 405 · `ThrottleRequests` → 429
-  - Anything else → 500 generic message (no stack traces / SQL leaked when `APP_DEBUG=false`)
-- [ ] Force JSON responses for API routes (middleware setting `Accept: application/json`)
-- [ ] Rate limiting: `throttle:api` (e.g. 60 req/min per IP/user), stricter on login
+- [x] Global JSON error rendering — `App\Exceptions\ApiExceptionRenderer` registered in `bootstrap/app.php`, applies to `api/*` → envelope `{ "message": "..." }` (+ `"errors": { field: [..] }` on 422)
+  - `ModelNotFoundException` → 404 "Project not found." (named from the model) · unmatched route → 404 generic (path not echoed)
+  - `ValidationException` → 422 (Laravel's `{message, errors}`) · 401 "Unauthenticated." · 405 "The PATCH method is not supported for this endpoint." · 419 CSRF · 429 (keeps `Retry-After` / `X-RateLimit-*` headers)
+  - Anything else → 500 "Server error. Please try again later." when `APP_DEBUG=false` (no traces/SQL); debug mode falls through to Laravel's detailed output for local work
+- [x] Force JSON responses for API routes (`ForceJsonResponse` middleware prepended to the `api` group → no redirects/HTML even without an `Accept` header)
+- [x] Rate limiting (`AppServiceProvider`): `api` 60 req/min keyed by user id, else IP (`throttleApi()`); `login` 5/min keyed by email + IP
 - [x] CORS (`config/cors.php`): only the Angular origin (`FRONTEND_URL`), only needed methods/headers — no `*`
-- [ ] Security headers middleware: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP for API responses
+- [x] Security headers (`SecurityHeaders`, global so 404s for unmatched routes get them too): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`; CSP `default-src 'none'; frame-ancestors 'none'` on `api/*` only; HSTS only over HTTPS
 - [x] Mass-assignment protection (`$fillable`), Eloquent/bound params only (no raw SQL with input), whitelisted sort columns (enum → `column()`)
 - [x] Input hardening: max lengths, strict date format, reject unknown enum values, `trim` (default middleware) — covered by `ProjectValidationTest`
-- [ ] Authentication — **Sanctum SPA cookie auth** (Q2): `GET /sanctum/csrf-cookie`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; `projects` routes behind `auth:sanctum`; `statefulApi()`; `SANCTUM_STATEFUL_DOMAINS` + `SESSION_DOMAIN` set; session regenerated on login, invalidated on logout; login throttled (5/min); seeded demo user (hashed password, credentials in README)
-- [ ] Secrets only in `.env` (never committed); `.env.example` documented
-- [ ] Optional: `Policy` for projects (structure for future roles)
+- [x] Authentication — **Sanctum SPA cookie auth** (Q2): `GET /sanctum/csrf-cookie`, `POST /api/auth/login` (`LoginRequest`, `throttle:login`), `POST /api/auth/logout`, `GET /api/auth/me` (`UserResource`: id, name, email); projects **and** `meta/enums` behind `auth:sanctum` (Q12); `statefulApi()`; session regenerated on login, invalidated + CSRF token rotated on logout; scaffolded `GET /api/user` removed. Verified live on MySQL with curl: csrf-cookie → 401 → login → 200; POST without XSRF header → 419
+- [x] Secrets only in `.env` (git-ignored, never committed); `.env.example` comments on `APP_KEY`, `APP_DEBUG`, `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, `DB_PASSWORD`
+- [-] Optional: `Policy` for projects — dropped (Q13): single-tenant app with no ownership in the spec's data model; a policy would need an `owner` column that `test_data.json` doesn't have
 
 ## 6. Backend — Tests (PHPUnit / Pest)
 
@@ -115,7 +115,7 @@ Every requirement below must map to code + a test before submission.
 - [x] Resource shape test (keys exactly match `test_data.json`; seeded list equals the file exactly)
 - [x] Seeder test: 12 rows, values equal `test_data.json`, idempotent (`tests/Feature/Database/ProjectSeederTest.php`) + model/factory tests (`ProjectModelTest.php`)
 - [x] Filter / search / sort / pagination tests; invalid sort column rejected (`ProjectIndexQueryTest`) + `MetaEnumsTest`
-- [ ] Auth tests: 401 on projects without session, login success/failure, logout, login throttling
+- [x] Auth tests (`AuthTest`): 401 on every protected endpoint without a session, login success/wrong password/missing + malformed fields, `me`, logout, login throttling (6th attempt → 429, even with the right password); `ErrorHandlingTest` (404/405/422/429/500 envelopes, JSON without `Accept`), `SecurityHeadersTest`; existing API tests sign in via `Tests\Concerns\AuthenticatesUser`
 - [x] Unit tests for enums (`values()`, `from()` failure) — `tests/Unit/Enums/EnumTest.php`
 - [x] Test DB: SQLite in-memory configured in `phpunit.xml` (Q7) — reviewers can run tests with zero DB setup
 - [ ] Portability check: full suite + `migrate:fresh --seed` pass on both SQLite and MySQL; no raw MySQL-only SQL
@@ -186,6 +186,8 @@ Every requirement below must map to code + a test before submission.
 | Q9 | Demo user credentials for auth | **`demo@example.com` / `password`** via `DemoUserSeeder`; local-review only, documented in README (2026-10-01) |
 | Q10 | Response envelope? (spec doesn't define one) | **Laravel resource default `{ "data": … }`** for single + list responses — consistent with paginated `data/links/meta`; record keys inside match `test_data.json` exactly (2026-10-02) |
 | Q11 | PATCH on `/projects/:id`? | **Not supported (405)** — spec lists PUT; PUT is a full replacement (2026-10-02) |
+| Q12 | Is `GET /api/meta/enums` public? | **Behind `auth:sanctum`** like the data endpoints — the login page doesn't need it; simpler rule: everything except login requires a session (2026-10-02) |
+| Q13 | Project `Policy`? | **Dropped** — no ownership in the spec's model; authorization = authenticated (2026-10-02) |
 | Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
@@ -196,3 +198,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-01 — Removed Claude co-author trailers from history; branches made linear; switched to branch-per-phase workflow (`feature/backend-domain` for §3).
 - 2026-10-01 — §3 done: enums (+ sort field/direction), `projects` migration, `Project` model, factory, `ProjectSeeder` (upsert on id) + `DemoUserSeeder`; 18 tests green; `migrate:fresh --seed` verified on MySQL. Next: §4 API layer.
 - 2026-10-02 — §4 done on `feature/backend-API-Layer`: explicit project routes, thin `ProjectController` + `ProjectService`, `ProjectRequest` (store/update), `IndexProjectRequest` → `ProjectFilters`, `ProjectResource`, search/filter/sort/opt-in pagination, `GET /api/meta/enums`; 107 tests green (SQLite), Pint clean, sort/search queries verified on MySQL. Next: §5 security & error handling.
+- 2026-10-02 — §5 done on `feature/security`: `ApiExceptionRenderer` (uniform JSON errors, no leaks), `ForceJsonResponse`, `SecurityHeaders`, `api`/`login` rate limiters, Sanctum SPA auth (`AuthController` login/logout/me) with all data routes behind `auth:sanctum`; 133 tests green, Pint clean, cookie+CSRF flow verified live on MySQL. Next: §6 portability check, then §7 frontend.
