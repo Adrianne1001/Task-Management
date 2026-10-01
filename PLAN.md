@@ -58,19 +58,19 @@ Every requirement below must map to code + a test before submission.
 
 ## 3. Backend — Domain: Enums, Migration, Model, Seeders
 
-- [ ] `app/Enums/ProjectStatus.php` — string-backed enum: `Planning`, `InProgress = 'In Progress'`, `OnHold = 'On Hold'`, `Completed` + `values()` / `label()` helpers
-- [ ] `app/Enums/ProjectPriority.php` — `Low`, `Medium`, `High` + helpers
-- [ ] Any other small constant sets as enums too (e.g. `SortField`, `SortDirection` for list sorting)
-- [ ] Migration `create_projects_table`:
+- [x] `app/Enums/ProjectStatus.php` — string-backed enum: `Planning`, `InProgress = 'In Progress'`, `OnHold = 'On Hold'`, `Completed` + `values()` / `label()` helpers (shared `Concerns\HasValues` trait: `values()`, `valuesForHumans()` for error messages)
+- [x] `app/Enums/ProjectPriority.php` — `Low`, `Medium`, `High` + helpers
+- [x] Any other small constant sets as enums too — `ProjectSortField` (camelCase API value → `column()` snake_case DB column) and `SortDirection`
+- [x] Migration `create_projects_table`:
   - `id` (bigIncrements), `client_name` varchar(150) not null, `project_name` varchar(150) not null,
   - `description` text nullable, `status` enum(from `ProjectStatus::values()`), `priority` enum(from `ProjectPriority::values()`),
   - `start_date` date **nullable**, `due_date` date **nullable** (Q4), timestamps
   - Indexes on `status`, `priority`, `due_date`
-- [ ] `Project` model: `$fillable` whitelist, `casts()` → enums + `date:Y-m-d` (prevents mass-assignment & guarantees enum integrity)
-- [ ] `ProjectFactory` (uses enum cases; due date always ≥ start date; states for null dates)
-- [ ] `ProjectSeeder`: reads `database/data/projects.json`, maps camelCase → snake_case, converts strings via `ProjectStatus::from()` / `ProjectPriority::from()` (fails loudly on invalid data), preserves ids, idempotent (`upsert` on id)
-- [ ] `DatabaseSeeder` calls `ProjectSeeder` (+ demo user if auth is in scope)
-- [ ] `php artisan migrate:fresh --seed` → 12 rows verified
+- [x] `Project` model: max-length constants (`CLIENT_NAME_MAX_LENGTH` …) shared by migration + validation, `$fillable` whitelist, `casts()` → enums + `date:Y-m-d` (prevents mass-assignment & guarantees enum integrity)
+- [x] `ProjectFactory` (uses enum cases; due date always ≥ start date; states for null dates)
+- [x] `ProjectSeeder`: reads `database/data/projects.json`, maps camelCase → snake_case, converts strings via `ProjectStatus::from()` / `ProjectPriority::from()` (fails loudly on invalid data), preserves ids, idempotent (`upsert` on id)
+- [x] `DatabaseSeeder` calls `ProjectSeeder` + `DemoUserSeeder` (`demo@example.com` / `password`, idempotent `updateOrCreate`, hashed via cast)
+- [x] `php artisan migrate:fresh --seed` → 12 rows verified on MySQL (InnoDB, enum columns, AUTO_INCREMENT=13) and SQLite; re-seed stays at 12
 
 ## 4. Backend — API Layer
 
@@ -113,10 +113,10 @@ Every requirement below must map to code + a test before submission.
 - [ ] Feature tests per endpoint: happy path + 404 + 422 cases
 - [ ] Validation matrix: missing clientName, missing projectName, invalid status, invalid priority, dueDate < startDate, dueDate == startDate (allowed), only one date given (allowed), both dates null (allowed), bad date format, over-length strings
 - [ ] Resource shape test (keys exactly match `test_data.json`)
-- [ ] Seeder test: 12 rows, values equal `test_data.json`
+- [x] Seeder test: 12 rows, values equal `test_data.json`, idempotent (`tests/Feature/Database/ProjectSeederTest.php`) + model/factory tests (`ProjectModelTest.php`)
 - [ ] Filter / search / sort tests; invalid sort column rejected
 - [ ] Auth tests: 401 on projects without session, login success/failure, logout, login throttling
-- [ ] Unit tests for enums (`values()`, `from()` failure)
+- [x] Unit tests for enums (`values()`, `from()` failure) — `tests/Unit/Enums/EnumTest.php`
 - [x] Test DB: SQLite in-memory configured in `phpunit.xml` (Q7) — reviewers can run tests with zero DB setup
 - [ ] Portability check: full suite + `migrate:fresh --seed` pass on both SQLite and MySQL; no raw MySQL-only SQL
 
@@ -183,6 +183,7 @@ Every requirement below must map to code + a test before submission.
 | Q5 | Docker / CI / deployment in scope? | _default: optional extras, after core is done_ |
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
 | Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite**. README must state SQLite is a reviewer convenience only; MySQL (WAMP) is the intended database (2026-10-01) |
+| Q9 | Demo user credentials for auth | **`demo@example.com` / `password`** via `DemoUserSeeder`; local-review only, documented in README (2026-10-01) |
 | Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
@@ -191,3 +192,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-01 — §1/§2: repo config files, Laravel 12 + Sanctum scaffolded, MySQL env, CORS locked down, seed data copied. DB creation waiting on MySQL service.
 - 2026-10-01 — MySQL DB + `cpt_app` user created; InnoDB forced; default migrations run on MySQL.
 - 2026-10-01 — Removed Claude co-author trailers from history; branches made linear; switched to branch-per-phase workflow (`feature/backend-domain` for §3).
+- 2026-10-01 — §3 done: enums (+ sort field/direction), `projects` migration, `Project` model, factory, `ProjectSeeder` (upsert on id) + `DemoUserSeeder`; 18 tests green; `migrate:fresh --seed` verified on MySQL. Next: §4 API layer.
