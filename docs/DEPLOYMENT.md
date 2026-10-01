@@ -40,7 +40,9 @@ This creates the tables (including `sessions` and `cache`) and seeds the 12 proj
 ## 3. API project (Vercel)
 
 1. Vercel → **Add New → Project** → import the GitHub repo.
-2. **Project name:** `client-project-tracker-api` · **Root Directory:** `backend` · Framework preset: **Other**.
+2. **Import single project** for `backend` · **Project name:** `client-project-tracker-api` · **Root Directory:**
+   `backend`. The framework preset doesn't matter: `backend/vercel.json` uses `builds`, so Vercel runs only the PHP
+   builder (no `npm run build`).
 3. **Environment Variables** — paste this block (Vercel accepts a pasted `.env`), filling in the `<…>` values:
 
 ```dotenv
