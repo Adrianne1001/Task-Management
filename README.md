@@ -12,7 +12,7 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 
 | | |
 |---|---|
-| Tests | 133 backend (PHPUnit) · 67 frontend (Vitest) |
+| Tests | 133 backend (PHPUnit) · 92 frontend (Vitest) |
 | Demo login | `demo@example.com` / `password` (local review only) |
 | API base URL | `http://localhost:8000/api` |
 | App URL | `http://localhost:4200` (`http://localhost:8080` with Docker) |
@@ -22,7 +22,7 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 [Tests](#running-the-tests) · [API reference](#api-reference) · [Architecture](#architecture) ·
 [Technical decisions](#technical-decisions--trade-offs) · [Assumptions](#assumptions) ·
 [Limitations](#known-limitations--future-improvements) · [AI disclosure](#ai-tools-disclosure) ·
-[Technical reflection](docs/REFLECTION.md)
+[Engineering reflection](docs/REFLECTION.md)
 
 ---
 
@@ -47,7 +47,12 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 - **Unit and feature tests** on both apps
 - Optional server-side pagination (`?page=` / `?perPage=`)
 - The list's search, filters and sort live in the URL, so refresh, back/forward and shared links keep the view
-- Accessible and responsive: labelled fields, focus moves to the first invalid field, works at phone width
+- Accessible and responsive: labelled fields, focus moves to the first invalid field, works at phone width (the
+  table turns into cards, and sorting moves to a row of buttons)
+- Modern UI: light and dark themes (follows the OS, with a remembered toggle), summary cards (total, in progress,
+  overdue, completed), **Overdue** / **Due soon** tags, client avatars and loading skeletons
+- Usability: click a row to open it, press `/` to jump to search, show/hide password, and a prompt before leaving a
+  form with unsaved changes
 
 Extras: a one-command [Docker Compose setup](#quick-start-with-docker), GitHub Actions CI (backend tests on SQLite
 and MySQL, Pint, frontend format check, tests and build, plus a Docker build + end-to-end smoke test), and an
@@ -187,7 +192,7 @@ cd backend
 php artisan test
 ./vendor/bin/pint --test           # code style check
 
-# Frontend: 67 tests (Vitest + jsdom)
+# Frontend: 92 tests (Vitest + jsdom)
 cd frontend
 npm test -- --watch=false
 npm run build                      # production build
@@ -353,7 +358,7 @@ Task-Management/
 ├── .github/workflows/               ci.yml (tests, lint, build), docker.yml (Compose build + smoke test)
 ├── docs/
 │   ├── openapi.yaml                 OpenAPI 3.1 API spec
-│   └── REFLECTION.md                Technical reflection answers
+│   └── REFLECTION.md                Engineering reflection (submission form answers)
 └── PLAN.md                          Implementation checklist, decisions log, requirements traceability
 ```
 
@@ -447,6 +452,6 @@ messages since it's disclosed here).
 
 ---
 
-## Technical reflection
+## Engineering reflection
 
-See [`docs/REFLECTION.md`](docs/REFLECTION.md).
+Answers to the submission form's questions are in [`docs/REFLECTION.md`](docs/REFLECTION.md).
