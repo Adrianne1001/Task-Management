@@ -33,7 +33,7 @@ Every requirement below must map to code + a test before submission.
 | V4 | Priority must be valid | `Rule::enum(ProjectPriority::class)` in `ProjectRequest` | `ProjectValidationTest` |
 | V5 | Due Date ≥ Start Date | `after_or_equal:startDate` (when start date valid) + `dateRangeValidator` | `ProjectValidationTest`, `project-validators.spec.ts`, `project-form.spec.ts` |
 | V6 | Invalid requests → meaningful errors | `App\Exceptions\ApiExceptionRenderer` — one `{ message, errors? }` envelope (401/404/405/419/422/429/500) | `ErrorHandlingTest`, `AuthTest` |
-| S1 | Public GitHub repo, setup/run instructions, technical reflection, AI disclosure (SUBMISSION/README) | Root `README.md`, `docs/` | Checklist §9 |
+| S1 | Public GitHub repo, setup/run instructions, technical reflection, AI disclosure (SUBMISSION/README) | Root `README.md`, `docs/REFLECTION.md` | Checklist §9 + fresh-clone test |
 | D1 | Seed data = `test_data.json` (12 projects, ids preserved) | `ProjectSeeder` + `database/data/projects.json` | Seeder test |
 
 ---
@@ -151,25 +151,26 @@ Every requirement below must map to code + a test before submission.
 
 ## 9. Documentation & Submission (SUBMISSION.md)
 
-- [ ] Root `README.md`:
-  - [ ] Overview & features (core + bonus)
-  - [ ] Tech stack & prerequisites (PHP 8.3, Composer, Node 22, MySQL)
-  - [ ] Setup & run instructions — copy-paste ready, two paths:
-    - [ ] **Full setup (MySQL, primary — listed first):** MySQL 9.1 via WAMP (or any MySQL 8+); create DB + least-privilege user (SQL snippet), migrate+seed
-    - [ ] **Quick start (SQLite, optional):** `DB_CONNECTION=sqlite`, touch `database/database.sqlite`, migrate+seed
-    - [ ] Clear note to the reviewer: the app is **built and intended to run on MySQL**; the SQLite option exists **only for their convenience** when testing, and the same migrations/seeders run on MySQL (WAMP) unchanged
-  - [ ] Running tests
-  - [ ] API reference table (method, path, body, responses, error format examples)
-  - [ ] Architecture overview + folder structure
-  - [ ] Technical decisions & trade-offs (enums, Form Requests, Resources, service layer, security choices)
-  - [ ] Assumptions (e.g. dates required, PUT = full update)
-  - [ ] Known limitations / future improvements
-  - [ ] **AI tools disclosure** (Claude Code) — required by README.md
-- [ ] Draft short technical reflection answers (`docs/REFLECTION.md`)
-- [ ] Final traceability check: every row in §0 ticked
-- [ ] Fresh-clone test: follow README from scratch on a clean checkout
-- [ ] All phase PRs merged into `main`; make GitHub repo **public**
-- [ ] Submit via the official form: repo link, setup instructions, reflection answers
+- [x] Root `README.md`:
+  - [x] Overview & features (core + bonus)
+  - [x] Tech stack & prerequisites (PHP 8.2+ (dev 8.3), Composer, Node ^20.19/^22.12/≥24 per Angular 21, MySQL 8+)
+  - [x] Setup & run instructions — copy-paste ready, two paths:
+    - [x] **Full setup (MySQL, primary — listed first):** MySQL 9.1 via WAMP (or any MySQL 8+); create DB + least-privilege user (SQL snippet), migrate+seed
+    - [x] **Quick start (SQLite, optional):** `DB_CONNECTION=sqlite`, touch `database/database.sqlite`, migrate+seed
+    - [x] Clear note to the reviewer: the app is **built and intended to run on MySQL**; the SQLite option exists **only for their convenience** when testing, and the same migrations/seeders run on MySQL (WAMP) unchanged
+  - [x] Running tests
+  - [x] API reference table (method, path, body, responses, error format examples)
+  - [x] Architecture overview + folder structure
+  - [x] Technical decisions & trade-offs (enums, Form Requests, Resources, service layer, security choices)
+  - [x] Assumptions (dates optional per Q4, PUT = full update, single-tenant auth, ids preserved)
+  - [x] Known limitations / future improvements
+  - [x] **AI tools disclosure** (Claude Code) — required by README.md
+- [x] Draft short technical reflection answers (`docs/REFLECTION.md`) — six common questions (approach, decisions, challenges, errors/validation, improvements, AI use); the official form's exact questions are only visible in the form, so adapt the answers when submitting
+- [x] `backend/README.md` Laravel boilerplate replaced with a short pointer to the root README
+- [x] Final traceability check: every row in §0 maps to existing code + tests (S1 → README + `docs/REFLECTION.md`)
+- [x] Fresh-clone test: clean clone of `feature/docs`, README SQLite path → `composer install`, `migrate:fresh --seed` (12 projects + 1 user), 133 backend tests, Pint clean; `npm ci` (0 vulnerabilities), 67 frontend tests, prod build; `php artisan serve` + `npm start` → CSRF cookie, login and project list through the dev proxy. MySQL path already verified in §6
+- [~] All phase PRs merged into `main`; make GitHub repo **public** — `feature/docs` PR open; making the repo public is the user's step
+- [ ] Submit via the official form: repo link, setup instructions, reflection answers (user)
 
 ---
 
@@ -205,3 +206,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-02 — §5 done on `feature/security`: `ApiExceptionRenderer` (uniform JSON errors, no leaks), `ForceJsonResponse`, `SecurityHeaders`, `api`/`login` rate limiters, Sanctum SPA auth (`AuthController` login/logout/me) with all data routes behind `auth:sanctum`; 133 tests green, Pint clean, cookie+CSRF flow verified live on MySQL. Next: §6 portability check, then §7 frontend.
 - 2026-10-02 — §6 done on `feature/backend-tests`: portability check — full suite green on SQLite and MySQL (`client_project_tracker_test`), `migrate:fresh --seed` verified on both. Next: §7 frontend on `feature/frontend`.
 - 2026-10-02 — §7 done on `feature/frontend`: Angular 21 + Material SPA — Sanctum login, guarded routes, project list (URL-synced search/filters/server sort), create/edit form (client validation mirroring the API + 422 mapping), delete confirm, global error interceptor, responsive + a11y; 67 Vitest tests green, prod build clean, `npm audit` 0; full flow verified in headless Chrome against Laravel + MySQL. Next: §9 documentation & submission (§8 extras optional).
+- 2026-10-02 — §9 on `feature/docs`: root `README.md` (features, prerequisites, MySQL-first setup + SQLite quick start, tests, API reference with real responses, architecture, decisions, assumptions, limitations, AI disclosure), `docs/REFLECTION.md`, backend README boilerplate replaced; fresh-clone test passed. Remaining: review/merge PR, make repo public, submit the form (user). §8 extras still optional.
