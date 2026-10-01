@@ -1,0 +1,1086 @@
+openapi: 3.1.0
+
+info:
+  title: Client Project Tracker API
+  version: 1.0.0
+  summary: REST API for creating, listing, updating and deleting client projects.
+  description: |
+    JSON REST API behind the Client Project Tracker SPA (Laravel 12, PHP 8.3).
+
+    Requests and responses use camelCase keys that match `test_data.json`
+    (`clientName`, `projectName`, `startDate`, ...). Every request under `/api` is
+    treated as expecting JSON (the `Accept` header is forced to `application/json`), so
+    errors are never answered with a redirect or HTML.
+
+    ## Authentication: Sanctum SPA cookies
+
+    The API uses Laravel Sanctum's **stateful SPA authentication**: a session cookie
+    plus CSRF protection. There are no bearer tokens.
+
+    1. `GET /sanctum/csrf-cookie` (outside `/api`) returns `204` and sets two cookies:
+       the session cookie (`client-project-tracker-session`, HttpOnly) and
+       `XSRF-TOKEN` (readable by JavaScript).
+    2. `POST /api/auth/login` with `{ email, password }`, sending the cookies and an
+       `X-XSRF-TOKEN` header that holds the URL-decoded value of the `XSRF-TOKEN` cookie.
+       On success the session is regenerated (prevents session fixation) and is now
+       authenticated.
+    3. Every later request sends the cookies. **State-changing requests** (`POST`,
+       `PUT`, `DELETE`) must also send `X-XSRF-TOKEN`; if it is missing or wrong the API
+       answers `419`. Angular's `HttpClient` does this automatically.
+    4. `POST /api/auth/logout` invalidates the session and rotates the CSRF token.
+
+    Sanctum only starts a session for requests whose `Origin` or `Referer` matches
+    `SANCTUM_STATEFUL_DOMAINS` (default `localhost:4200`, the Angular dev server). A
+    request from any other origin gets no session, so protected endpoints answer `401`.
+    When calling the API by hand (curl, Postman), send `Origin: http://localhost:4200`
+    or go through the Angular dev proxy. CORS allows only `FRONTEND_URL`, with credentials.
+
+    **Public:** `GET /sanctum/csrf-cookie`, `POST /api/auth/login`.
+    **Protected (signed-in session required):** every other endpoint.
+
+    The demo seeder creates `demo@example.com` / `password`.
+
+    ## Rate limiting
+
+    - Every `/api` route: 60 requests per minute, keyed by user id when signed in,
+      otherwise by IP address.
+    - `POST /api/auth/login` additionally: 5 attempts per minute, keyed by email + IP.
+      Every attempt counts, successful or not.
+
+    Throttled responses carry `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Past the
+    limit the API answers `429` with `Retry-After` and `X-RateLimit-Reset`.
+
+    ## Errors
+
+    Every error has the same envelope: `{ "message": "..." }`. Validation failures (`422`)
+    add `errors`, keyed by field, each holding a list of messages. Stack traces, SQL and
+    route internals are never returned (with `APP_DEBUG=false`, unexpected failures are a
+    generic `500`).
+
+    ## Security headers
+
+    Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+    `Referrer-Policy: no-referrer` and a restrictive `Permissions-Policy`. `/api` responses
+    also carry `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, and
+    HTTPS responses carry `Strict-Transport-Security`.
+
+servers:
+  - url: http://localhost:4200/api
+    description: Through the Angular dev proxy (how the SPA calls the API; requests are stateful)
+  - url: http://127.0.0.1:8000/api
+    description: Laravel dev server directly (send an `Origin` header from a stateful domain to get a session)
+
+security:
+  - sessionCookie: []
+
+tags:
+  - name: Auth
+    description: Sanctum SPA session login, logout and current user.
+  - name: Projects
+    description: Client project CRUD, search, filtering, sorting and pagination.
+  - name: Meta
+    description: Allowed enum values, so clients build options from the backend's single source of truth.
+
+paths:
+  /sanctum/csrf-cookie:
+    servers:
+      - url: http://localhost:4200
+        description: Through the Angular dev proxy
+      - url: http://127.0.0.1:8000
+        description: Laravel dev server directly
+    get:
+      tags: [Auth]
+      operationId: getCsrfCookie
+      summary: Initialise CSRF protection
+      description: |
+        Provided by Sanctum, outside the `/api` prefix. Starts a session and sets the
+        `XSRF-TOKEN` cookie whose value must be echoed in the `X-XSRF-TOKEN` header on
+        state-changing requests. Call it before logging in.
+      security: []
+      responses:
+        '204':
+          description: Cookies set. No body.
+          headers:
+            Set-Cookie:
+              description: |
+                `XSRF-TOKEN=...` (readable by JavaScript) and
+                `client-project-tracker-session=...` (HttpOnly).
+              schema:
+                type: string
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in
+      description: |
+        Authenticates against the `web` guard and regenerates the session. Requires the
+        cookies from `GET /sanctum/csrf-cookie` and the `X-XSRF-TOKEN` header; the
+        session cookie at this point is still anonymous. Throttled to 5 attempts per
+        minute per email + IP.
+      security:
+        - xsrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+            example:
+              email: demo@example.com
+              password: password
+      responses:
+        '200':
+          description: Logged in. The session cookie now identifies the user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+              example:
+                data:
+                  id: 1
+                  name: Demo User
+                  email: demo@example.com
+        '419':
+          $ref: '#/components/responses/CsrfTokenMismatch'
+        '422':
+          description: Missing or malformed fields, or wrong credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                wrongCredentials:
+                  summary: Wrong email or password
+                  value:
+                    message: These credentials do not match our records.
+                    errors:
+                      email:
+                        - These credentials do not match our records.
+                missingFields:
+                  summary: Empty body
+                  value:
+                    message: The email field is required. (and 1 more error)
+                    errors:
+                      email:
+                        - The email field is required.
+                      password:
+                        - The password field is required.
+                malformedEmail:
+                  summary: Not an email address
+                  value:
+                    message: The email field must be a valid email address.
+                    errors:
+                      email:
+                        - The email field must be a valid email address.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Log out
+      description: Logs out, invalidates the session and rotates the CSRF token.
+      security:
+        - sessionCookie: []
+          xsrfHeader: []
+      responses:
+        '204':
+          description: Logged out. No body.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '419':
+          $ref: '#/components/responses/CsrfTokenMismatch'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getCurrentUser
+      summary: Get the signed-in user
+      description: Used by the SPA to restore its signed-in state after a page reload.
+      responses:
+        '200':
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+              example:
+                data:
+                  id: 1
+                  name: Demo User
+                  email: demo@example.com
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /projects:
+    description: |
+      Only `GET` and `POST` are routed here; other methods return `405`.
+    get:
+      tags: [Projects]
+      operationId: listProjects
+      summary: List projects
+      description: |
+        Lists projects, optionally searched, filtered and sorted. All query options are
+        whitelisted and validated; an invalid value returns `422`. Options combine with AND.
+
+        Results are ordered by `id` ascending unless `sort` is given (and `id` breaks ties
+        when it is). `status` and `priority` sort in their declared order
+        (`Planning` < `In Progress` < `On Hold` < `Completed`; `Low` < `Medium` < `High`),
+        not alphabetically.
+
+        **Pagination is opt-in:** without `page` or `perPage` the response is every
+        matching project as `{ data }`. With either one it is a Laravel paginator page,
+        `{ data, links, meta }`, and its links keep the other query options.
+      parameters:
+        - name: search
+          in: query
+          description: Case-insensitive substring match on client name or project name. Surrounding whitespace is trimmed; an empty value is ignored.
+          schema:
+            type: string
+            maxLength: 100
+          example: Acme
+        - name: status
+          in: query
+          description: Only projects with this status.
+          schema:
+            $ref: '#/components/schemas/ProjectStatus'
+          example: In Progress
+        - name: priority
+          in: query
+          description: Only projects with this priority.
+          schema:
+            $ref: '#/components/schemas/ProjectPriority'
+          example: High
+        - name: sort
+          in: query
+          description: Field to sort by. Omitted means order by `id`.
+          schema:
+            $ref: '#/components/schemas/ProjectSortField'
+          example: dueDate
+        - name: direction
+          in: query
+          description: Sort direction. Only meaningful with `sort`.
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+        - name: page
+          in: query
+          description: Page number. Giving it turns on pagination (`perPage` then defaults to 15).
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+        - name: perPage
+          in: query
+          description: Page size. Giving it turns on pagination.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+          example: 15
+      responses:
+        '200':
+          description: |
+            Matching projects. `{ data }` when not paginated; `{ data, links, meta }` when
+            `page` or `perPage` is given.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ProjectList'
+                  - $ref: '#/components/schemas/PaginatedProjectList'
+              examples:
+                unpaginated:
+                  summary: GET /api/projects?status=In%20Progress&priority=High&sort=dueDate
+                  value:
+                    data:
+                      - id: 1
+                        clientName: Acme Corporation
+                        projectName: Corporate Website Redesign
+                        description: Redesign and modernize the company's corporate website.
+                        status: In Progress
+                        priority: High
+                        startDate: '2026-06-01'
+                        dueDate: '2026-07-15'
+                      - id: 4
+                        clientName: Nova Fitness
+                        projectName: Mobile App MVP
+                        description: Develop the first version of the fitness tracking app.
+                        status: In Progress
+                        priority: High
+                        startDate: '2026-06-05'
+                        dueDate: '2026-08-20'
+                empty:
+                  summary: No matches
+                  value:
+                    data: []
+                paginated:
+                  summary: GET /api/projects?perPage=2&page=2 (12 seeded projects)
+                  value:
+                    data:
+                      - id: 3
+                        clientName: Bright Realty
+                        projectName: Property Listing Portal
+                        description: Build a portal for managing property listings.
+                        status: On Hold
+                        priority: Medium
+                        startDate: '2026-05-15'
+                        dueDate: '2026-07-30'
+                      - id: 4
+                        clientName: Nova Fitness
+                        projectName: Mobile App MVP
+                        description: Develop the first version of the fitness tracking app.
+                        status: In Progress
+                        priority: High
+                        startDate: '2026-06-05'
+                        dueDate: '2026-08-20'
+                    links:
+                      first: http://127.0.0.1:8000/api/projects?perPage=2&page=1
+                      last: http://127.0.0.1:8000/api/projects?perPage=2&page=6
+                      prev: http://127.0.0.1:8000/api/projects?perPage=2&page=1
+                      next: http://127.0.0.1:8000/api/projects?perPage=2&page=3
+                    meta:
+                      current_page: 2
+                      from: 3
+                      last_page: 6
+                      links:
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=1
+                          label: '&laquo; Previous'
+                          page: 1
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=1
+                          label: '1'
+                          page: 1
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=2
+                          label: '2'
+                          page: 2
+                          active: true
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=3
+                          label: '3'
+                          page: 3
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=4
+                          label: '4'
+                          page: 4
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=5
+                          label: '5'
+                          page: 5
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=6
+                          label: '6'
+                          page: 6
+                          active: false
+                        - url: http://127.0.0.1:8000/api/projects?perPage=2&page=3
+                          label: 'Next &raquo;'
+                          page: 3
+                          active: false
+                      path: http://127.0.0.1:8000/api/projects
+                      per_page: 2
+                      to: 4
+                      total: 12
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          description: An invalid query option.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                invalidStatus:
+                  summary: status=Done
+                  value:
+                    message: 'Status must be one of: Planning, In Progress, On Hold, Completed.'
+                    errors:
+                      status:
+                        - 'Status must be one of: Planning, In Progress, On Hold, Completed.'
+                invalidSort:
+                  summary: sort=createdAt
+                  value:
+                    message: 'Sort must be one of: clientName, projectName, status, priority, startDate, dueDate.'
+                    errors:
+                      sort:
+                        - 'Sort must be one of: clientName, projectName, status, priority, startDate, dueDate.'
+                invalidDirection:
+                  summary: direction=up
+                  value:
+                    message: 'Direction must be one of: asc, desc.'
+                    errors:
+                      direction:
+                        - 'Direction must be one of: asc, desc.'
+                perPageTooLarge:
+                  summary: perPage=101
+                  value:
+                    message: The per page field must not be greater than 100.
+                    errors:
+                      perPage:
+                        - The per page field must not be greater than 100.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags: [Projects]
+      operationId: createProject
+      summary: Create a project
+      security:
+        - sessionCookie: []
+          xsrfHeader: []
+      requestBody:
+        $ref: '#/components/requestBodies/ProjectInput'
+      responses:
+        '201':
+          description: Created.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectEnvelope'
+              example:
+                data:
+                  id: 13
+                  clientName: Acme Corporation
+                  projectName: Corporate Website Redesign
+                  description: Redesign and modernize the company's corporate website.
+                  status: In Progress
+                  priority: High
+                  startDate: '2026-06-01'
+                  dueDate: '2026-07-15'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '419':
+          $ref: '#/components/responses/CsrfTokenMismatch'
+        '422':
+          $ref: '#/components/responses/ProjectValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /projects/{project}:
+    description: |
+      `GET`, `PUT` and `DELETE` are routed here. `PATCH` returns `405`: an update is a
+      full replacement via `PUT`. A non-numeric id does not match the route and returns
+      `404` with `The requested resource was not found.`
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Projects]
+      operationId: getProject
+      summary: Get a project
+      responses:
+        '200':
+          description: The project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectEnvelope'
+              example:
+                data:
+                  id: 1
+                  clientName: Acme Corporation
+                  projectName: Corporate Website Redesign
+                  description: Redesign and modernize the company's corporate website.
+                  status: In Progress
+                  priority: High
+                  startDate: '2026-06-01'
+                  dueDate: '2026-07-15'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ProjectNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      tags: [Projects]
+      operationId: updateProject
+      summary: Replace a project
+      description: |
+        Full replacement: the body has the same rules as create, and any optional field
+        that is omitted is stored as `null`. Partial updates are not supported.
+      security:
+        - sessionCookie: []
+          xsrfHeader: []
+      requestBody:
+        $ref: '#/components/requestBodies/ProjectInput'
+      responses:
+        '200':
+          description: The updated project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectEnvelope'
+              example:
+                data:
+                  id: 1
+                  clientName: Acme Corporation
+                  projectName: Corporate Website Redesign
+                  description: Redesign and modernize the company's corporate website.
+                  status: Completed
+                  priority: High
+                  startDate: '2026-06-01'
+                  dueDate: '2026-07-15'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ProjectNotFound'
+        '419':
+          $ref: '#/components/responses/CsrfTokenMismatch'
+        '422':
+          $ref: '#/components/responses/ProjectValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    patch:
+      tags: [Projects]
+      operationId: patchProjectNotSupported
+      summary: Not supported (use PUT)
+      description: |
+        Not routed. Documented only to make the behaviour explicit: updates are full
+        replacements via `PUT`, so `PATCH` always answers `405`.
+      security: []
+      responses:
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+
+    delete:
+      tags: [Projects]
+      operationId: deleteProject
+      summary: Delete a project
+      description: Permanently deletes the project.
+      security:
+        - sessionCookie: []
+          xsrfHeader: []
+      responses:
+        '204':
+          description: Deleted. No body.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ProjectNotFound'
+        '419':
+          $ref: '#/components/responses/CsrfTokenMismatch'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /meta/enums:
+    get:
+      tags: [Meta]
+      operationId: getEnums
+      summary: Get allowed enum values
+      description: Values are listed in their declared order, which is also their sort order.
+      responses:
+        '200':
+          description: The allowed values for each enum.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnumsEnvelope'
+              example:
+                data:
+                  statuses: [Planning, In Progress, On Hold, Completed]
+                  priorities: [Low, Medium, High]
+                  sortFields: [clientName, projectName, status, priority, startDate, dueDate]
+                  sortDirections: [asc, desc]
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: client-project-tracker-session
+      description: |
+        Laravel session cookie (HttpOnly, encrypted), set by `GET /sanctum/csrf-cookie`
+        and regenerated by `POST /api/auth/login`. Its name derives from `APP_NAME`
+        unless `SESSION_COOKIE` is set. Only honoured on requests from a
+        `SANCTUM_STATEFUL_DOMAINS` origin.
+    xsrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+      description: |
+        CSRF token: the URL-decoded value of the `XSRF-TOKEN` cookie. Required on
+        state-changing requests (`POST`, `PUT`, `DELETE`); missing or wrong returns `419`.
+
+  parameters:
+    ProjectId:
+      name: project
+      in: path
+      required: true
+      description: Numeric project id (digits only).
+      schema:
+        type: integer
+        minimum: 0
+      example: 1
+
+  headers:
+    Location:
+      description: Absolute URL of the new project.
+      schema:
+        type: string
+        format: uri
+      example: http://127.0.0.1:8000/api/projects/13
+    RetryAfter:
+      description: Seconds until another request is allowed.
+      schema:
+        type: integer
+      example: 42
+    XRateLimitLimit:
+      description: Requests allowed in the current window.
+      schema:
+        type: integer
+      example: 60
+    XRateLimitRemaining:
+      description: Requests left in the current window.
+      schema:
+        type: integer
+      example: 0
+    XRateLimitReset:
+      description: Unix timestamp at which the window resets.
+      schema:
+        type: integer
+      example: 1790946042
+
+  requestBodies:
+    ProjectInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProjectInput'
+          examples:
+            full:
+              summary: All fields
+              value:
+                clientName: Acme Corporation
+                projectName: Corporate Website Redesign
+                description: Redesign and modernize the company's corporate website.
+                status: In Progress
+                priority: High
+                startDate: '2026-06-01'
+                dueDate: '2026-07-15'
+            minimal:
+              summary: Required fields only (optional fields become null)
+              value:
+                clientName: Acme Corporation
+                projectName: Corporate Website Redesign
+                status: Planning
+                priority: Medium
+
+  responses:
+    Unauthenticated:
+      description: No signed-in session.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Unauthenticated.
+    ProjectNotFound:
+      description: No project with that id (or the id is not numeric).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unknownId:
+              summary: Numeric id that does not exist
+              value:
+                message: Project not found.
+            nonNumericId:
+              summary: Non-numeric id (route does not match)
+              value:
+                message: The requested resource was not found.
+    MethodNotAllowed:
+      description: The HTTP method is not supported for this endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: The PATCH method is not supported for this endpoint.
+    CsrfTokenMismatch:
+      description: The `X-XSRF-TOKEN` header is missing or does not match the session (or the session expired).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: CSRF token mismatch. Refresh the page and try again.
+    ProjectValidationFailed:
+      description: The body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          examples:
+            severalErrors:
+              summary: 'Body: { "clientName": "", "status": "Done", "priority": "Urgent", "startDate": "2026-05-10", "dueDate": "2026-05-01" }'
+              value:
+                message: The client name field is required. (and 4 more errors)
+                errors:
+                  clientName:
+                    - The client name field is required.
+                  projectName:
+                    - The project name field is required.
+                  status:
+                    - 'Status must be one of: Planning, In Progress, On Hold, Completed.'
+                  priority:
+                    - 'Priority must be one of: Low, Medium, High.'
+                  dueDate:
+                    - The due date cannot be earlier than the start date.
+            invalidDate:
+              summary: startDate=2026-02-30 (not a real date)
+              value:
+                message: The start date must be a valid date in YYYY-MM-DD format.
+                errors:
+                  startDate:
+                    - The start date must be a valid date in YYYY-MM-DD format.
+            tooLong:
+              summary: clientName longer than 150 characters
+              value:
+                message: The client name field must not be greater than 150 characters.
+                errors:
+                  clientName:
+                    - The client name field must not be greater than 150 characters.
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Too many requests. Please try again later.
+    ServerError:
+      description: Unexpected failure. With `APP_DEBUG=false` no internals are returned.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Server error. Please try again later.
+
+  schemas:
+    ProjectStatus:
+      type: string
+      enum: [Planning, In Progress, On Hold, Completed]
+      description: Declared order, also used when sorting by status.
+      example: In Progress
+
+    ProjectPriority:
+      type: string
+      enum: [Low, Medium, High]
+      description: Declared order, also used when sorting by priority.
+      example: High
+
+    ProjectSortField:
+      type: string
+      enum: [clientName, projectName, status, priority, startDate, dueDate]
+      example: dueDate
+
+    SortDirection:
+      type: string
+      enum: [asc, desc]
+      default: asc
+
+    Date:
+      type: string
+      format: date
+      pattern: '^\d{4}-\d{2}-\d{2}$'
+      description: Calendar date in `YYYY-MM-DD` format.
+      example: '2026-06-01'
+
+    Project:
+      type: object
+      additionalProperties: false
+      required: [id, clientName, projectName, description, status, priority, startDate, dueDate]
+      properties:
+        id:
+          type: integer
+          example: 1
+        clientName:
+          type: string
+          maxLength: 150
+          example: Acme Corporation
+        projectName:
+          type: string
+          maxLength: 150
+          example: Corporate Website Redesign
+        description:
+          type: [string, 'null']
+          maxLength: 2000
+          example: Redesign and modernize the company's corporate website.
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        priority:
+          $ref: '#/components/schemas/ProjectPriority'
+        startDate:
+          oneOf:
+            - $ref: '#/components/schemas/Date'
+            - type: 'null'
+        dueDate:
+          oneOf:
+            - $ref: '#/components/schemas/Date'
+            - type: 'null'
+      description: Every key is always present; optional values are `null` when unset.
+      example:
+        id: 1
+        clientName: Acme Corporation
+        projectName: Corporate Website Redesign
+        description: Redesign and modernize the company's corporate website.
+        status: In Progress
+        priority: High
+        startDate: '2026-06-01'
+        dueDate: '2026-07-15'
+
+    ProjectInput:
+      type: object
+      description: |
+        Body for create (`POST`) and full replacement (`PUT`). Strings are trimmed and empty
+        strings become `null`, so a whitespace-only name counts as missing. Unknown keys
+        (including `id`) are ignored.
+      required: [clientName, projectName, status, priority]
+      properties:
+        clientName:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Acme Corporation
+        projectName:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Corporate Website Redesign
+        description:
+          type: [string, 'null']
+          maxLength: 2000
+          example: Redesign and modernize the company's corporate website.
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        priority:
+          $ref: '#/components/schemas/ProjectPriority'
+        startDate:
+          description: Must be a real calendar date (`2026-02-30` is rejected).
+          oneOf:
+            - $ref: '#/components/schemas/Date'
+            - type: 'null'
+        dueDate:
+          description: Must be a real calendar date, on or after `startDate` when both are given.
+          oneOf:
+            - $ref: '#/components/schemas/Date'
+            - type: 'null'
+
+    ProjectEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Project'
+
+    ProjectList:
+      type: object
+      title: Unpaginated list
+      description: Returned when neither `page` nor `perPage` is given.
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+
+    PaginatedProjectList:
+      type: object
+      title: Paginated list
+      description: Returned when `page` or `perPage` is given (Laravel paginated resource collection).
+      required: [data, links, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        links:
+          type: object
+          required: [first, last, prev, next]
+          properties:
+            first:
+              type: string
+              format: uri
+            last:
+              type: string
+              format: uri
+            prev:
+              type: [string, 'null']
+              format: uri
+            next:
+              type: [string, 'null']
+              format: uri
+        meta:
+          type: object
+          required: [current_page, from, last_page, links, path, per_page, to, total]
+          description: Laravel's paginator metadata (snake_case keys, as produced by the framework).
+          properties:
+            current_page:
+              type: integer
+            from:
+              type: [integer, 'null']
+              description: Position of the first item on this page; `null` when the page is empty.
+            last_page:
+              type: integer
+            links:
+              type: array
+              description: Page links for building a pager (previous, numbered pages, next).
+              items:
+                type: object
+                required: [url, label, page, active]
+                properties:
+                  url:
+                    type: [string, 'null']
+                    format: uri
+                  label:
+                    type: string
+                  page:
+                    type: [integer, 'null']
+                  active:
+                    type: boolean
+            path:
+              type: string
+              format: uri
+            per_page:
+              type: integer
+            to:
+              type: [integer, 'null']
+              description: Position of the last item on this page; `null` when the page is empty.
+            total:
+              type: integer
+
+    EnumsEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [statuses, priorities, sortFields, sortDirections]
+          properties:
+            statuses:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectStatus'
+            priorities:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectPriority'
+            sortFields:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectSortField'
+            sortDirections:
+              type: array
+              items:
+                $ref: '#/components/schemas/SortDirection'
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: demo@example.com
+        password:
+          type: string
+          format: password
+          maxLength: 255
+          example: password
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, name, email]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Demo User
+        email:
+          type: string
+          format: email
+          example: demo@example.com
+
+    UserEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+
+    Error:
+      type: object
+      description: Envelope for every non-validation error.
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Project not found.
+
+    ValidationError:
+      type: object
+      description: |
+        `422` envelope. `message` is the first error, followed by `(and N more error[s])`
+        when there are several. `errors` maps each failing field to its messages.
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+          example: The client name field is required. (and 4 more errors)
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            clientName:
+              - The client name field is required.
