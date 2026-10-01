@@ -1,11 +1,13 @@
-import { DatePipe } from '@angular/common';
+import { DOCUMENT, DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -42,12 +44,14 @@ import {
   PROJECT_STATUSES,
   Project,
   ProjectQuery,
+  ProjectStatus,
   ProjectSortField,
   SortDirection,
   toEnumValue,
 } from '../../../models/project';
 import { PriorityBadge, StatusBadge } from '../../../shared/badges/badges';
 import { confirmAction } from '../../../shared/confirm-dialog/confirm-dialog';
+import { DueState, avatarTone, dueState, initials } from '../../../shared/project-display';
 import { ProjectService } from '../project.service';
 
 type ListState =
@@ -86,6 +90,7 @@ const INITIAL_STATE: ListState = { status: 'loading', projects: [] };
   templateUrl: './project-list.html',
   styleUrl: './project-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown)': 'onShortcut($event)' },
 })
 export class ProjectList {
   private readonly projectService = inject(ProjectService);
@@ -94,10 +99,18 @@ export class ProjectList {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly statuses = PROJECT_STATUSES;
   protected readonly priorities = PROJECT_PRIORITIES;
   protected readonly searchMaxLength = PROJECT_LIMITS.search;
+  protected readonly skeletonRows = [1, 2, 3, 4, 5];
+  protected readonly DueState = DueState;
+  protected readonly dueState = dueState;
+  protected readonly avatarTone = avatarTone;
+  protected readonly initials = initials;
+
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
   protected readonly columns = [
     'clientName',
     'projectName',
@@ -141,6 +154,19 @@ export class ProjectList {
     { initialValue: INITIAL_STATE },
   );
 
+  /** Counts for the summary cards, over the projects currently listed. */
+  protected readonly summary = computed(() => {
+    const { projects } = this.state();
+    const today = new Date();
+
+    return {
+      total: projects.length,
+      inProgress: projects.filter((p) => p.status === ProjectStatus.InProgress).length,
+      overdue: projects.filter((p) => dueState(p, today) === DueState.Overdue).length,
+      completed: projects.filter((p) => p.status === ProjectStatus.Completed).length,
+    };
+  });
+
   constructor() {
     // URL -> form (initial load and back/forward), without re-triggering navigation.
     // Skipped when only whitespace differs, so a trailing space mid-typing survives.
@@ -182,6 +208,36 @@ export class ProjectList {
       sort: active ?? null,
       direction: active ? sort.direction : null,
     });
+  }
+
+  /** Clicking anywhere on a row (except its buttons/links) opens the project. */
+  protected openFromRow(project: Project, event: MouseEvent): void {
+    const target = event.target as Element | null;
+
+    // Leave buttons and links alone, and don't hijack text selection.
+    if (target?.closest('a, button') || this.document.getSelection()?.toString()) {
+      return;
+    }
+
+    void this.router.navigate(['/projects', project.id, 'edit']);
+  }
+
+  /** "/" focuses the search box, unless the user is typing somewhere. */
+  protected onShortcut(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const typing =
+      target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
+
+    if (event.key !== '/' || typing || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    const input = this.searchInput()?.nativeElement;
+
+    if (input) {
+      event.preventDefault();
+      input.focus();
+    }
   }
 
   protected clearFilters(): void {

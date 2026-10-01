@@ -1,20 +1,44 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 
-<mat-toolbar class="app-toolbar">
-  <a class="brand" routerLink="/projects">
-    <mat-icon aria-hidden="true">folder_shared</mat-icon>
-    <span>Client Project Tracker</span>
-  </a>
+<header class="app-toolbar">
+  <div class="app-toolbar__inner">
+    <a class="brand" routerLink="/projects">
+      <span class="brand__mark" aria-hidden="true">
+        <mat-icon>folder_shared</mat-icon>
+      </span>
+      <span class="brand__name">Client Project Tracker</span>
+    </a>
 
-  @if (auth.user(); as user) {
     <span class="spacer"></span>
-    <span class="user-name">{{ user.name }}</span>
-    <button mat-button type="button" (click)="logout()">
-      <mat-icon aria-hidden="true">logout</mat-icon>
-      Sign out
+
+    <button
+      mat-icon-button
+      type="button"
+      class="theme-toggle"
+      [attr.aria-label]="themeLabel()"
+      [title]="themeLabel()"
+      (click)="theme.toggle()"
+    >
+      <mat-icon aria-hidden="true">{{
+        theme.mode() === 'dark' ? 'light_mode' : 'dark_mode'
+      }}</mat-icon>
     </button>
-  }
-</mat-toolbar>
+
+    @if (auth.user(); as user) {
+      <div class="account">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="account__text">
+          <span class="account__name">{{ user.name }}</span>
+          <span class="account__email">{{ user.email }}</span>
+        </span>
+      </div>
+      <button mat-stroked-button type="button" class="sign-out" (click)="logout()">
+        <mat-icon aria-hidden="true">logout</mat-icon>
+        <span class="sign-out__label">Sign out</span>
+      </button>
+    }
+  </div>
+</header>
 
 <main id="main-content" class="app-content" tabindex="-1">
   <router-outlet />

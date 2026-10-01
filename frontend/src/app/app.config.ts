@@ -5,6 +5,7 @@ import {
   inject,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
+import { MAT_ICON_DEFAULT_OPTIONS } from '@angular/material/icon';
 import { Title } from '@angular/platform-browser';
 import {
   RouterStateSnapshot,
@@ -35,6 +36,8 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     { provide: TitleStrategy, useClass: AppTitleStrategy },
+    // Rounded Material Icons (font loaded in index.html).
+    { provide: MAT_ICON_DEFAULT_OPTIONS, useValue: { fontSet: 'material-icons-round' } },
     provideHttpClient(
       // Sanctum's names, spelled out: Laravel sets the XSRF-TOKEN cookie and
       // expects it back in X-XSRF-TOKEN on every state-changing request.

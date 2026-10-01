@@ -1,30 +1,92 @@
+@use 'sass:list';
+
+// --- Summary cards ------------------------------------------------------------------------------
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.stat__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+
+  &--total {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  @each $tone in info, danger, success {
+    &--#{$tone} {
+      background: var(--tone-#{$tone}-bg);
+      color: var(--tone-#{$tone}-fg);
+    }
+  }
+}
+
+.stat__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat__value {
+  font: var(--mat-sys-headline-small);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.stat__label {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+}
+
+// --- Filters (top of the table card) ------------------------------------------------------------
+.table-card {
+  overflow: hidden;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
-
-  mat-form-field {
-    width: 180px;
-  }
+  padding: 16px;
+  border-bottom: 1px solid var(--app-card-border);
 
   .filters__search {
-    flex: 1 1 260px;
+    flex: 1 1 280px;
+  }
+
+  .filters__select {
+    width: 180px;
   }
 }
 
-.table-card {
+.filters__shortcut {
+  margin-right: 12px;
+}
+
+// --- Table --------------------------------------------------------------------------------------
+.table-body {
   position: relative;
-  overflow: hidden;
-  border-radius: 12px;
-  background: var(--mat-sys-surface-container-lowest);
-  border: 1px solid var(--mat-sys-outline-variant);
 
   mat-progress-bar {
     position: absolute;
     inset: 0 0 auto;
-    z-index: 1;
+    z-index: 2;
   }
 }
 
@@ -34,19 +96,116 @@
 
 table {
   width: 100%;
-  min-width: 720px;
-  // Opaque, so the sticky actions column hides what scrolls beneath it.
-  background: var(--mat-sys-surface-container-lowest);
+  min-width: 860px;
+}
+
+th.mat-mdc-header-cell {
+  background: var(--mat-sys-surface-container-low);
+  font: var(--mat-sys-label-medium);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.project-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+
+  &:hover,
+  &:hover .actions-cell {
+    background: var(--mat-sys-surface-container-low);
+  }
+
+  &:last-child td {
+    border-bottom: none;
+  }
+}
+
+.client {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.client__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font: var(--mat-sys-label-large);
+  font-weight: 700;
+
+  // Generated content isn't part of the cell's text, so screen readers and the cell text stay "Acme Corp".
+  &::before {
+    content: attr(data-initials);
+  }
+}
+
+// One tone per client (see avatarTone()).
+$avatar-tones: (
+  0: (
+    #ede9fe,
+    #5b21b6,
+    #3b2a63,
+    #d8ccff,
+  ),
+  1: (
+    #e0f2fe,
+    #075985,
+    #123a52,
+    #b8e3ff,
+  ),
+  2: (
+    #dcfce7,
+    #166534,
+    #173d27,
+    #b5f0c9,
+  ),
+  3: (
+    #fef3c7,
+    #92400e,
+    #45320f,
+    #ffdf9e,
+  ),
+  4: (
+    #ffe4e6,
+    #9f1239,
+    #4a1a24,
+    #ffc2cb,
+  ),
+  5: (
+    #e0e7ff,
+    #3730a3,
+    #252a5c,
+    #c9d1ff,
+  ),
+);
+
+@each $index, $colors in $avatar-tones {
+  .avatar-tone-#{$index} {
+    background: light-dark(list.nth($colors, 1), list.nth($colors, 3));
+    color: light-dark(list.nth($colors, 2), list.nth($colors, 4));
+  }
+}
+
+.client__name {
+  font-weight: 500;
 }
 
 .project-name {
-  display: block;
-  font-weight: 500;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
 }
 
 .project-description {
   display: -webkit-box;
   max-width: 360px;
+  margin-top: 2px;
   overflow: hidden;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -54,56 +213,280 @@ table {
   font: var(--mat-sys-body-small);
 }
 
+.due-tag {
+  padding: 1px 8px;
+  border-radius: 6px;
+  font: var(--mat-sys-label-small);
+  font-weight: 600;
+
+  &--overdue {
+    background: var(--tone-danger-bg);
+    color: var(--tone-danger-fg);
+  }
+
+  &--soon {
+    background: var(--tone-warning-bg);
+    color: var(--tone-warning-fg);
+  }
+}
+
 .date-cell {
   white-space: nowrap;
+  color: var(--mat-sys-on-surface-variant);
+
+  &--overdue {
+    color: var(--tone-danger-fg);
+    font-weight: 600;
+  }
 }
 
 .actions-cell,
 th.mat-column-actions {
-  background: var(--mat-sys-surface-container-lowest);
+  // Opaque, so the sticky actions column hides what scrolls beneath it.
+  background: var(--app-card-bg);
+}
+
+th.mat-column-actions {
+  background: var(--mat-sys-surface-container-low);
 }
 
 .actions-cell {
   width: 96px;
   white-space: nowrap;
   text-align: right;
+  transition: background-color 120ms ease;
+
+  a,
+  button {
+    color: var(--mat-sys-on-surface-variant);
+  }
 }
 
-.danger-icon:not([disabled]) {
+.actions-cell .danger-icon:not([disabled]):hover {
   color: var(--mat-sys-error);
 }
 
-.state {
-  display: flex;
-  flex-direction: column;
+// --- Loading skeleton ---------------------------------------------------------------------------
+.skeleton {
+  padding: 8px 16px;
+}
+
+.skeleton__row {
+  display: grid;
+  grid-template-columns: 36px 160px minmax(0, 1fr) 90px 70px;
   align-items: center;
-  gap: 8px;
-  padding: 48px 16px;
-  text-align: center;
-  color: var(--mat-sys-on-surface-variant);
+  gap: 16px;
+  height: 64px;
+  border-bottom: 1px solid var(--app-card-border);
 
-  mat-icon {
-    color: var(--mat-sys-error);
-  }
-
-  p {
-    margin: 0;
+  &:last-child {
+    border-bottom: none;
   }
 }
 
-// Phones: hide dates and descriptions (still on the edit page) to keep rows compact.
+%shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--mat-sys-surface-container) 25%,
+    var(--mat-sys-surface-container-high) 50%,
+    var(--mat-sys-surface-container) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton__avatar {
+  @extend %shimmer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.skeleton__line {
+  @extend %shimmer;
+  height: 12px;
+  border-radius: 6px;
+
+  &--short {
+    width: 70%;
+  }
+}
+
+.skeleton__pill {
+  @extend %shimmer;
+  height: 22px;
+  border-radius: 999px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+// --- Tablet -------------------------------------------------------------------------------------
+@media (max-width: 959.98px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// --- Phones: each row becomes a card; the header row becomes a wrap of sort buttons ------------
 @media (max-width: 599.98px) {
-  .filters mat-form-field {
-    flex: 1 1 140px;
+  .stats {
+    gap: 10px;
+    margin-bottom: 16px;
   }
 
-  table {
-    min-width: 520px;
+  .stat {
+    gap: 10px;
+    padding: 12px;
   }
 
-  .mat-column-startDate,
-  .mat-column-dueDate,
-  .project-description {
+  .stat__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+
+    mat-icon {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+    }
+  }
+
+  .stat__value {
+    font: var(--mat-sys-title-large);
+    font-weight: 700;
+  }
+
+  .filters {
+    padding: 12px;
+
+    .filters__select {
+      flex: 1 1 140px;
+      width: auto;
+    }
+  }
+
+  .filters__shortcut {
     display: none;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr.mat-mdc-no-data-row,
+  tr.mat-mdc-no-data-row td {
+    display: block;
+    min-width: 0;
+  }
+
+  // Sorting stays available: headers turn into a row of small buttons.
+  tr.mat-mdc-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    height: auto;
+    padding: 12px;
+    background: var(--mat-sys-surface-container-low);
+    border-bottom: 1px solid var(--app-card-border);
+
+    &::before {
+      content: 'Sort by';
+      align-self: center;
+      margin-right: 2px;
+      color: var(--mat-sys-on-surface-variant);
+      font: var(--mat-sys-label-medium);
+    }
+  }
+
+  th.mat-mdc-header-cell {
+    padding: 4px 10px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 999px;
+    background: var(--app-card-bg);
+    font-size: 11px;
+  }
+
+  th.mat-column-actions {
+    display: none;
+  }
+
+  tr.project-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    height: auto;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--app-card-border);
+  }
+
+  tr.project-row td {
+    padding: 0;
+    border: none;
+  }
+
+  td.mat-column-clientName {
+    order: 1;
+    flex: 1 1 auto;
+  }
+
+  // Undo the sticky column inside the card layout.
+  td.actions-cell {
+    position: static !important;
+    order: 2;
+    width: auto;
+    background: transparent;
+  }
+
+  td.mat-column-projectName {
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  td.mat-column-status {
+    order: 4;
+  }
+
+  td.mat-column-priority {
+    order: 5;
+  }
+
+  td.date-cell {
+    order: 6;
+    font: var(--mat-sys-body-small);
+
+    &::before {
+      content: attr(data-label) ' ';
+      font-weight: 600;
+    }
+  }
+
+  // Phones show the due date only (the start date is on the edit page), next to the badges.
+  td.mat-column-startDate {
+    display: none;
+  }
+
+  td.mat-column-dueDate {
+    margin-left: auto;
+  }
+
+  .project-description {
+    max-width: none;
+  }
+
+  .skeleton__row {
+    grid-template-columns: 36px minmax(0, 1fr) 70px;
+
+    .skeleton__line:not(.skeleton__line--short),
+    .skeleton__pill:last-child {
+      display: none;
+    }
   }
 }

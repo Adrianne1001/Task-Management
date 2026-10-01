@@ -1,168 +1,283 @@
 <header class="page-header">
-  <h1>Projects</h1>
+  <div>
+    <h1>Projects</h1>
+    <p class="page-subtitle">Track every client project, its status and deadlines.</p>
+  </div>
   <a mat-flat-button routerLink="/projects/new">
     <mat-icon aria-hidden="true">add</mat-icon>
     New project
   </a>
 </header>
 
-<form class="filters" [formGroup]="filters" role="search" aria-label="Filter projects">
-  <mat-form-field class="filters__search" appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Search</mat-label>
-    <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-    <input
-      matInput
-      type="search"
-      formControlName="search"
-      placeholder="Client or project name"
-      [maxlength]="searchMaxLength"
-    />
-  </mat-form-field>
+@let current = state();
+@let stats = summary();
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Status</mat-label>
-    <mat-select formControlName="status">
-      <mat-option value="">All statuses</mat-option>
-      @for (status of statuses; track status) {
-        <mat-option [value]="status">{{ status }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+<section class="stats" aria-label="Summary of the listed projects">
+  <div class="stat card">
+    <span class="stat__icon stat__icon--total" aria-hidden="true"><mat-icon>folder</mat-icon></span>
+    <span class="stat__text">
+      <span class="stat__value">{{ stats.total }}</span>
+      <span class="stat__label">{{ stats.total === 1 ? 'Project' : 'Projects' }}</span>
+    </span>
+  </div>
+  <div class="stat card">
+    <span class="stat__icon stat__icon--info" aria-hidden="true"
+      ><mat-icon>autorenew</mat-icon></span
+    >
+    <span class="stat__text">
+      <span class="stat__value">{{ stats.inProgress }}</span>
+      <span class="stat__label">In progress</span>
+    </span>
+  </div>
+  <div class="stat card">
+    <span class="stat__icon stat__icon--danger" aria-hidden="true"
+      ><mat-icon>schedule</mat-icon></span
+    >
+    <span class="stat__text">
+      <span class="stat__value">{{ stats.overdue }}</span>
+      <span class="stat__label">Overdue</span>
+    </span>
+  </div>
+  <div class="stat card">
+    <span class="stat__icon stat__icon--success" aria-hidden="true"
+      ><mat-icon>task_alt</mat-icon></span
+    >
+    <span class="stat__text">
+      <span class="stat__value">{{ stats.completed }}</span>
+      <span class="stat__label">Completed</span>
+    </span>
+  </div>
+</section>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Priority</mat-label>
-    <mat-select formControlName="priority">
-      <mat-option value="">All priorities</mat-option>
-      @for (priority of priorities; track priority) {
-        <mat-option [value]="priority">{{ priority }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+<section class="table-card card" aria-labelledby="projects-table-caption">
+  <form class="filters" [formGroup]="filters" role="search" aria-label="Filter projects">
+    <mat-form-field class="filters__search" appearance="outline" subscriptSizing="dynamic">
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input
+        #searchInput
+        matInput
+        type="search"
+        formControlName="search"
+        placeholder="Search client or project…"
+        aria-label="Search"
+        aria-keyshortcuts="/"
+        [maxlength]="searchMaxLength"
+      />
+      <kbd matSuffix class="filters__shortcut" aria-hidden="true">/</kbd>
+    </mat-form-field>
 
-  @if (hasFilters()) {
-    <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
-  }
-</form>
+    <mat-form-field class="filters__select" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status">
+        <mat-option value="">All statuses</mat-option>
+        @for (status of statuses; track status) {
+          <mat-option [value]="status">{{ status }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-<section class="table-card" aria-labelledby="projects-table-caption">
-  @let current = state();
+    <mat-form-field class="filters__select" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Priority</mat-label>
+      <mat-select formControlName="priority">
+        <mat-option value="">All priorities</mat-option>
+        @for (priority of priorities; track priority) {
+          <mat-option [value]="priority">{{ priority }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-  @if (current.status === 'loading') {
-    <mat-progress-bar mode="indeterminate" aria-label="Loading projects" />
-  }
+    @if (hasFilters()) {
+      <button mat-button type="button" class="filters__clear" (click)="clearFilters()">
+        <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
+        Clear filters
+      </button>
+    }
+  </form>
 
-  @if (current.status === 'error') {
-    <div class="state" role="alert">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>{{ current.message }}</p>
-      <button mat-stroked-button type="button" (click)="retry()">Try again</button>
-    </div>
-  } @else {
-    <div class="table-scroll">
-      <table
-        mat-table
-        [dataSource]="current.projects"
-        matSort
-        [matSortActive]="query().sort ?? ''"
-        [matSortDirection]="sortDirection()"
-        (matSortChange)="onSortChange($event)"
-      >
-        <caption id="projects-table-caption" class="visually-hidden">
-          Client projects
-        </caption>
+  <div class="table-body">
+    @if (current.status === 'loading') {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading projects" />
+    }
 
-        <ng-container matColumnDef="clientName">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Client</th>
-          <td mat-cell *matCellDef="let project">{{ project.clientName }}</td>
-        </ng-container>
+    @if (current.status === 'error') {
+      <div class="state" role="alert">
+        <span class="state__icon state__icon--error" aria-hidden="true">
+          <mat-icon>cloud_off</mat-icon>
+        </span>
+        <p class="state__title">Couldn't load projects</p>
+        <p>{{ current.message }}</p>
+        <button mat-stroked-button type="button" class="state__actions" (click)="retry()">
+          <mat-icon aria-hidden="true">refresh</mat-icon>
+          Try again
+        </button>
+      </div>
+    } @else if (current.status === 'loading' && current.projects.length === 0) {
+      <!-- First load: placeholder rows instead of an empty table. -->
+      <div class="skeleton" aria-hidden="true">
+        @for (row of skeletonRows; track row) {
+          <div class="skeleton__row">
+            <span class="skeleton__avatar"></span>
+            <span class="skeleton__line skeleton__line--short"></span>
+            <span class="skeleton__line"></span>
+            <span class="skeleton__pill"></span>
+            <span class="skeleton__pill"></span>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="table-scroll">
+        <table
+          mat-table
+          [dataSource]="current.projects"
+          matSort
+          [matSortActive]="query().sort ?? ''"
+          [matSortDirection]="sortDirection()"
+          (matSortChange)="onSortChange($event)"
+        >
+          <caption id="projects-table-caption" class="visually-hidden">
+            Client projects
+          </caption>
 
-        <ng-container matColumnDef="projectName">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Project</th>
-          <td mat-cell *matCellDef="let project">
-            <span class="project-name">{{ project.projectName }}</span>
-            @if (project.description) {
-              <span class="project-description">{{ project.description }}</span>
-            }
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="clientName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Client</th>
+            <td mat-cell *matCellDef="let project">
+              <span class="client">
+                <!-- Initials come from CSS (data-initials), so the cell's text stays the client name. -->
+                <span
+                  [class]="'client__avatar avatar-tone-' + avatarTone(project.clientName)"
+                  [attr.data-initials]="initials(project.clientName)"
+                  aria-hidden="true"
+                ></span>
+                <span class="client__name">{{ project.clientName }}</span>
+              </span>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
-          <td mat-cell *matCellDef="let project">
-            <app-status-badge [status]="project.status" />
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="priority">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Priority</th>
-          <td mat-cell *matCellDef="let project">
-            <app-priority-badge [priority]="project.priority" />
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="startDate">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Start</th>
-          <td mat-cell *matCellDef="let project" class="date-cell">
-            {{ project.startDate ? (project.startDate | date: 'mediumDate') : '—' }}
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="dueDate">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Due</th>
-          <td mat-cell *matCellDef="let project" class="date-cell">
-            {{ project.dueDate ? (project.dueDate | date: 'mediumDate') : '—' }}
-          </td>
-        </ng-container>
-
-        <!-- Sticky so Edit/Delete stay reachable while the table scrolls sideways on small screens. -->
-        <ng-container matColumnDef="actions" stickyEnd>
-          <th mat-header-cell *matHeaderCellDef>
-            <span class="visually-hidden">Actions</span>
-          </th>
-          <td mat-cell *matCellDef="let project" class="actions-cell">
-            <a
-              mat-icon-button
-              [routerLink]="['/projects', project.id, 'edit']"
-              [attr.aria-label]="'Edit ' + project.projectName"
-              matTooltip="Edit"
-            >
-              <mat-icon aria-hidden="true">edit</mat-icon>
-            </a>
-            <button
-              mat-icon-button
-              type="button"
-              class="danger-icon"
-              [disabled]="deletingId() === project.id"
-              [attr.aria-label]="'Delete ' + project.projectName"
-              matTooltip="Delete"
-              (click)="confirmDelete(project)"
-            >
-              <mat-icon aria-hidden="true">delete</mat-icon>
-            </button>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="columns"></tr>
-        <tr mat-row *matRowDef="let row; columns: columns"></tr>
-
-        <tr class="mat-mdc-row" *matNoDataRow>
-          <td [attr.colspan]="columns.length">
-            @if (current.status === 'loaded') {
-              <div class="state empty-state">
-                @if (hasFilters()) {
-                  <p>No projects match these filters.</p>
-                  <button mat-stroked-button type="button" (click)="clearFilters()">
-                    Clear filters
-                  </button>
-                } @else {
-                  <p>No projects yet.</p>
-                  <a mat-stroked-button routerLink="/projects/new">Create the first one</a>
+          <ng-container matColumnDef="projectName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Project</th>
+            <td mat-cell *matCellDef="let project">
+              <span class="project-name">
+                {{ project.projectName }}
+                @switch (dueState(project)) {
+                  @case (DueState.Overdue) {
+                    <span class="due-tag due-tag--overdue">Overdue</span>
+                  }
+                  @case (DueState.DueSoon) {
+                    <span class="due-tag due-tag--soon">Due soon</span>
+                  }
                 }
-              </div>
-            }
-          </td>
-        </tr>
-      </table>
-    </div>
-  }
+              </span>
+              @if (project.description) {
+                <span class="project-description">{{ project.description }}</span>
+              }
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+            <td mat-cell *matCellDef="let project">
+              <app-status-badge [status]="project.status" />
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="priority">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Priority</th>
+            <td mat-cell *matCellDef="let project">
+              <app-priority-badge [priority]="project.priority" />
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="startDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Start</th>
+            <td mat-cell *matCellDef="let project" class="date-cell" data-label="Start">
+              {{ project.startDate ? (project.startDate | date: 'mediumDate') : '—' }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="dueDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Due</th>
+            <td
+              mat-cell
+              *matCellDef="let project"
+              class="date-cell"
+              data-label="Due"
+              [class.date-cell--overdue]="dueState(project) === DueState.Overdue"
+            >
+              {{ project.dueDate ? (project.dueDate | date: 'mediumDate') : '—' }}
+            </td>
+          </ng-container>
+
+          <!-- Sticky so Edit/Delete stay reachable while the table scrolls sideways on small screens. -->
+          <ng-container matColumnDef="actions" stickyEnd>
+            <th mat-header-cell *matHeaderCellDef>
+              <span class="visually-hidden">Actions</span>
+            </th>
+            <td mat-cell *matCellDef="let project" class="actions-cell">
+              <a
+                mat-icon-button
+                [routerLink]="['/projects', project.id, 'edit']"
+                [attr.aria-label]="'Edit ' + project.projectName"
+                matTooltip="Edit"
+              >
+                <mat-icon aria-hidden="true">edit</mat-icon>
+              </a>
+              <button
+                mat-icon-button
+                type="button"
+                class="danger-icon"
+                [disabled]="deletingId() === project.id"
+                [attr.aria-label]="'Delete ' + project.projectName"
+                matTooltip="Delete"
+                (click)="confirmDelete(project)"
+              >
+                <mat-icon aria-hidden="true">delete_outline</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <!-- Whole row opens the project (mouse/touch); keyboard users use the Edit link. -->
+          <tr
+            mat-row
+            *matRowDef="let row; columns: columns"
+            class="project-row"
+            (click)="openFromRow(row, $event)"
+          ></tr>
+
+          <tr class="mat-mdc-row" *matNoDataRow>
+            <td [attr.colspan]="columns.length">
+              @if (current.status === 'loaded') {
+                <div class="state empty-state">
+                  @if (hasFilters()) {
+                    <span class="state__icon" aria-hidden="true"
+                      ><mat-icon>search_off</mat-icon></span
+                    >
+                    <p class="state__title">No projects match these filters.</p>
+                    <p>Try a different search term, or clear the filters.</p>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      class="state__actions"
+                      (click)="clearFilters()"
+                    >
+                      Clear filters
+                    </button>
+                  } @else {
+                    <span class="state__icon" aria-hidden="true"
+                      ><mat-icon>create_new_folder</mat-icon></span
+                    >
+                    <p class="state__title">No projects yet.</p>
+                    <p>Add your first client project to start tracking it.</p>
+                    <a mat-flat-button class="state__actions" routerLink="/projects/new">
+                      Create the first one
+                    </a>
+                  }
+                </div>
+              }
+            </td>
+          </tr>
+        </table>
+      </div>
+    }
+  </div>
 </section>

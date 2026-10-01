@@ -1,54 +1,222 @@
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
+// Angular Material 3 theme + a few app-wide design tokens.
+// Colours come from Material's system variables (--mat-sys-*), which use `light-dark()`, so the whole
+// app follows the `color-scheme` set on <html>: the OS preference by default, or the toolbar toggle
+// (ThemeService sets `data-theme="light" | "dark"`).
 @use '@angular/material' as mat;
+
+$font-family: 'Inter, Roboto, "Helvetica Neue", Arial, sans-serif';
 
 html {
   height: 100%;
+  color-scheme: light;
+
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$violet-palette,
+        tertiary: mat.$cyan-palette,
       ),
-      typography: Roboto,
+      typography: (
+        plain-family: $font-family,
+        brand-family: $font-family,
+        bold-weight: 600,
+        medium-weight: 500,
+        regular-weight: 400,
+      ),
       density: 0,
     )
   );
+
+  // Rounder, softer components.
+  @include mat.button-overrides(
+    (
+      filled-container-shape: 10px,
+      outlined-container-shape: 10px,
+      text-container-shape: 10px,
+      tonal-container-shape: 10px,
+      protected-container-shape: 10px,
+    )
+  );
+  @include mat.form-field-overrides(
+    (
+      outlined-container-shape: 12px,
+    )
+  );
+  @include mat.dialog-overrides(
+    (
+      container-shape: 20px,
+    )
+  );
+  @include mat.snack-bar-overrides(
+    (
+      container-shape: 12px,
+    )
+  );
+  @include mat.table-overrides(
+    (
+      background-color: transparent,
+      header-headline-color: var(--mat-sys-on-surface-variant),
+      row-item-outline-color: var(--mat-sys-outline-variant),
+    )
+  );
+
+  // App tokens.
+  --app-radius: 16px;
+  --app-page-bg: var(--mat-sys-surface-container-low);
+  --app-card-bg: var(--mat-sys-surface-container-lowest);
+  --app-card-border: color-mix(in srgb, var(--mat-sys-outline-variant) 70%, transparent);
+  --app-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
+  --app-shadow-raised: 0 2px 4px rgb(16 24 40 / 0.06), 0 12px 32px rgb(16 24 40 / 0.1);
+  --app-brand-gradient: linear-gradient(135deg, #7c3aed 0%, #4f46e5 55%, #0891b2 100%);
+
+  // Badge/tag tones: text/background pairs with WCAG AA contrast in both schemes.
+  --tone-neutral-bg: light-dark(#eef0f3, #2b2f36);
+  --tone-neutral-fg: light-dark(#3d4651, #c9d1db);
+  --tone-neutral-dot: light-dark(#8a94a3, #8a94a3);
+  --tone-info-bg: light-dark(#e6efff, #1b2c4d);
+  --tone-info-fg: light-dark(#1849a9, #a9c7ff);
+  --tone-info-dot: light-dark(#2e6be6, #6f9cff);
+  --tone-warning-bg: light-dark(#fff3e2, #3d2c12);
+  --tone-warning-fg: light-dark(#8a4b00, #ffcf8f);
+  --tone-warning-dot: light-dark(#e88a00, #ffb547);
+  --tone-success-bg: light-dark(#e5f6ec, #143323);
+  --tone-success-fg: light-dark(#17663a, #9be3b7);
+  --tone-success-dot: light-dark(#22a35a, #4fcf86);
+  --tone-danger-bg: light-dark(#ffe9e9, #44191c);
+  --tone-danger-fg: light-dark(#b3261e, #ffb4ab);
+  --tone-danger-dot: light-dark(#e5484d, #ff6b6b);
+
+  &[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:not([data-theme='light']) {
+      color-scheme: dark;
+    }
+  }
+}
+
+// Dark surfaces don't need drop shadows to separate cards.
+@mixin dark-tokens {
+  --app-shadow: none;
+  --app-shadow-raised: 0 12px 32px rgb(0 0 0 / 0.4);
+}
+
+html[data-theme='dark'] {
+  @include dark-tokens;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']) {
+    @include dark-tokens;
+  }
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
-  color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
+  margin: 0;
+  min-height: 100%;
+  background-color: var(--app-page-bg);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
-  margin: 0;
-  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1 {
   margin: 0;
   font: var(--mat-sys-headline-small);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
 }
 
 .page-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-large);
+}
+
+.card {
+  border-radius: var(--app-radius);
+  background: var(--app-card-bg);
+  border: 1px solid var(--app-card-border);
+  box-shadow: var(--app-shadow);
+}
+
+// Inline error banner used by forms.
+.form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+
+  mat-icon {
+    flex: none;
+  }
+}
+
+// Centered empty / error / not-found states.
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 16px;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+
+  p {
+    margin: 0;
+  }
+
+  .state__title {
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-title-medium);
+    font-weight: 600;
+  }
+
+  .state__actions {
+    margin-top: 8px;
+  }
+}
+
+.state__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+  border-radius: 20px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+
+  mat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 32px;
+  }
+
+  &.state__icon--error {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+  }
 }
 
 // Hidden visually, still read by screen readers.
@@ -81,4 +249,26 @@ h1 {
       button-color: var(--mat-sys-on-error-container),
     )
   );
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  line-height: 1.6;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

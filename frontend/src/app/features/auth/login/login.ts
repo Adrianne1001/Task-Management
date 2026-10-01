@@ -40,6 +40,7 @@ export class Login {
 
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly showPassword = signal(false);
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],

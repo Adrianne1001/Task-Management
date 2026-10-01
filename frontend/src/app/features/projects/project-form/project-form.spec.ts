@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, firstValueFrom, of, throwError } from 'rxjs';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { ApiError } from '../../../core/http/api-error';
 import { NotificationService } from '../../../core/notification.service';
 import { Project, ProjectPriority, ProjectStatus } from '../../../models/project';
@@ -29,6 +31,9 @@ describe('ProjectForm', () => {
   };
   let notifications: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
   let router: Router;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogAnswer: boolean;
+  let signedIn: boolean;
 
   async function render(id?: string): Promise<void> {
     fixture = TestBed.createComponent(ProjectForm);
@@ -67,6 +72,9 @@ describe('ProjectForm', () => {
       update: vi.fn(() => of(PROJECT)),
     };
     notifications = { success: vi.fn(), error: vi.fn() };
+    dialogAnswer = false;
+    signedIn = true;
+    dialog = { open: vi.fn(() => ({ afterClosed: () => of(dialogAnswer) })) };
 
     TestBed.configureTestingModule({
       imports: [ProjectForm],
@@ -74,6 +82,8 @@ describe('ProjectForm', () => {
         provideRouter([]),
         { provide: ProjectService, useValue: projects },
         { provide: NotificationService, useValue: notifications },
+        { provide: MatDialog, useValue: dialog },
+        { provide: AuthService, useValue: { isAuthenticated: () => signedIn } },
       ],
     });
     router = TestBed.inject(Router);
@@ -137,6 +147,49 @@ describe('ProjectForm', () => {
       expect(router.navigate).toHaveBeenCalledWith(['/projects']);
     });
 
+    it('reports unsaved changes until the project is saved', async () => {
+      expect(fixture.componentInstance.hasUnsavedChanges()).toBe(false);
+
+      await type('clientName', 'Acme');
+      await type('projectName', 'Website');
+      expect(fixture.componentInstance.hasUnsavedChanges()).toBe(true);
+
+      await submit();
+      expect(fixture.componentInstance.hasUnsavedChanges()).toBe(false);
+    });
+
+    it('keeps reporting unsaved changes when saving fails', async () => {
+      projects.create.mockReturnValue(throwError(() => new ApiError(500, 'Something went wrong.')));
+      await type('clientName', 'Acme');
+      await type('projectName', 'Website');
+      await submit();
+
+      expect(fixture.componentInstance.hasUnsavedChanges()).toBe(true);
+    });
+
+    it('asks before leaving with unsaved changes', async () => {
+      await type('clientName', 'Acme');
+
+      dialogAnswer = false;
+      expect(
+        await firstValueFrom(fixture.componentInstance.canDeactivate() as Observable<boolean>),
+      ).toBe(false);
+      dialogAnswer = true;
+      expect(
+        await firstValueFrom(fixture.componentInstance.canDeactivate() as Observable<boolean>),
+      ).toBe(true);
+      expect(dialog.open).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves without asking when nothing changed or the session has ended', async () => {
+      expect(fixture.componentInstance.canDeactivate()).toBe(true);
+
+      await type('clientName', 'Acme');
+      signedIn = false;
+      expect(fixture.componentInstance.canDeactivate()).toBe(true);
+      expect(dialog.open).not.toHaveBeenCalled();
+    });
+
     it('allows both dates to be empty', async () => {
       await type('clientName', 'Acme');
       await type('projectName', 'Website');
@@ -182,6 +235,8 @@ describe('ProjectForm', () => {
       expect(projects.get).toHaveBeenCalledWith(7);
       expect(input('clientName').value).toBe('Acme Corp');
       expect(element.querySelector('h1')!.textContent).toContain('Edit project');
+      // Loading the project doesn't count as an edit.
+      expect(fixture.componentInstance.hasUnsavedChanges()).toBe(false);
 
       await type('projectName', 'Website Relaunch');
       await submit();

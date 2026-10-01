@@ -180,6 +180,69 @@ describe('ProjectList', () => {
     expect(projects.list).toHaveBeenCalledTimes(2);
   });
 
+  describe('at a fixed date', () => {
+    beforeEach(() => {
+      // Only Date is faked, so debounce timers elsewhere keep working.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(2026, 5, 1)); // 1 Jun 2026: Acme's 15 May due date has passed
+    });
+
+    afterEach(() => vi.useRealTimers());
+
+    it('summarises the listed projects', async () => {
+      const element = await render();
+      const stats = Array.from(element.querySelectorAll('.stat__text'), (stat) => [
+        stat.querySelector('.stat__value')!.textContent!.trim(),
+        stat.querySelector('.stat__label')!.textContent!.trim(),
+      ]);
+
+      expect(stats).toEqual([
+        ['2', 'Projects'],
+        ['1', 'In progress'],
+        ['1', 'Overdue'],
+        ['0', 'Completed'],
+      ]);
+    });
+
+    it('tags overdue projects without changing the date text', async () => {
+      const element = await render();
+      const rows = element.querySelectorAll('tr.project-row');
+
+      expect(rows[0].querySelector('.due-tag')!.textContent).toContain('Overdue');
+      expect(rows[0].querySelector('.date-cell--overdue')!.textContent!.trim()).toBe(
+        'May 15, 2026',
+      );
+      expect(rows[1].querySelector('.due-tag')).toBeNull();
+    });
+  });
+
+  it('opens a project when its row is clicked, but not from its buttons', async () => {
+    const element = await render();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    element.querySelectorAll<HTMLElement>('tr.project-row td.mat-column-projectName')[1].click();
+    expect(navigate).toHaveBeenCalledWith(['/projects', 2, 'edit']);
+
+    navigate.mockClear();
+    confirmed = false;
+    element.querySelector<HTMLButtonElement>('button[aria-label="Delete Mobile App"]')!.click();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('focuses the search box when "/" is pressed outside a field', async () => {
+    const element = await render();
+    const search = element.querySelector<HTMLInputElement>('input[type="search"]')!;
+
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }));
+    expect(document.activeElement).toBe(search);
+
+    // Typing "/" inside a field is left alone.
+    search.blur();
+    const event = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+    search.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it('does nothing when the deletion is cancelled', async () => {
     confirmed = false;
     const element = await render();

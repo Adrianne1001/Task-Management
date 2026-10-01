@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Observable, map } from 'rxjs';
 
@@ -12,9 +13,12 @@ export interface ConfirmDialogData {
 /** Generic yes/no dialog. Focus starts on Cancel so Enter never destroys data by accident. */
 @Component({
   selector: 'app-confirm-dialog',
-  imports: [MatDialogModule, MatButtonModule],
+  imports: [MatDialogModule, MatButtonModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>{{ data.title }}</h2>
+    <h2 mat-dialog-title class="title">
+      <span class="title__icon" aria-hidden="true"><mat-icon>warning_amber</mat-icon></span>
+      {{ data.title }}
+    </h2>
     <mat-dialog-content>
       <p>{{ data.message }}</p>
     </mat-dialog-content>
@@ -24,6 +28,29 @@ export interface ConfirmDialogData {
         {{ data.confirmLabel }}
       </button>
     </mat-dialog-actions>
+  `,
+  styles: `
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .title__icon {
+      display: grid;
+      flex: none;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+    }
+
+    p {
+      margin: 0;
+      color: var(--mat-sys-on-surface-variant);
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

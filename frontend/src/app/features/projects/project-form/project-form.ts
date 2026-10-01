@@ -22,6 +22,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { ErrorStateMatcher, provideNativeDateAdapter } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -30,8 +31,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 import { Observable, catchError, map, of, startWith, switchMap } from 'rxjs';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { ApiError, errorMessage } from '../../../core/http/api-error';
 import { NotificationService } from '../../../core/notification.service';
+import { HasUnsavedChanges } from '../../../core/unsaved-changes.guard';
 import {
   PROJECT_LIMITS,
   PROJECT_PRIORITIES,
@@ -41,6 +44,8 @@ import {
   ProjectPriority,
   ProjectStatus,
 } from '../../../models/project';
+import { PriorityBadge, StatusBadge } from '../../../shared/badges/badges';
+import { confirmAction } from '../../../shared/confirm-dialog/confirm-dialog';
 import { fromApiDate, toApiDate } from '../../../shared/dates';
 import { dateRangeValidator, notBlank } from '../../../shared/validators/project-validators';
 import { ProjectService } from '../project.service';
@@ -91,13 +96,16 @@ class DueDateErrorStateMatcher implements ErrorStateMatcher {
     MatInputModule,
     MatProgressBarModule,
     MatSelectModule,
+    PriorityBadge,
+    StatusBadge,
   ],
   providers: [provideNativeDateAdapter()],
   templateUrl: './project-form.html',
   styleUrl: './project-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:beforeunload)': 'onBeforeUnload($event)' },
 })
-export class ProjectForm {
+export class ProjectForm implements HasUnsavedChanges {
   private readonly projectService = inject(ProjectService);
   private readonly notifications = inject(NotificationService);
   private readonly router = inject(Router);
@@ -105,6 +113,8 @@ export class ProjectForm {
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
+  private readonly dialog = inject(MatDialog);
+  private readonly auth = inject(AuthService);
 
   /** Route parameter `:id`, bound by `withComponentInputBinding()`; absent when creating. */
   readonly id = input<string>();
@@ -116,6 +126,7 @@ export class ProjectForm {
   protected readonly dueDateMatcher = new DueDateErrorStateMatcher();
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
+  private saved = false;
 
   protected readonly form = this.fb.nonNullable.group(
     {
@@ -172,6 +183,7 @@ export class ProjectForm {
     this.saving.set(true);
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (project) => {
+        this.saved = true;
         this.notifications.success(
           `${this.isEdit() ? 'Updated' : 'Created'} "${project.projectName}".`,
         );
@@ -182,6 +194,33 @@ export class ProjectForm {
         this.handleSaveError(error);
       },
     });
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.form.dirty && !this.saved;
+  }
+
+  /**
+   * Called by `unsavedChangesGuard` before in-app navigation. Doesn't ask once
+   * the session has ended (the interceptor is already sending the user to login).
+   */
+  canDeactivate(): boolean | Observable<boolean> {
+    if (!this.hasUnsavedChanges() || !this.auth.isAuthenticated()) {
+      return true;
+    }
+
+    return confirmAction(this.dialog, {
+      title: 'Discard unsaved changes?',
+      message: "Your changes to this project haven't been saved. Leave this page anyway?",
+      confirmLabel: 'Discard changes',
+    });
+  }
+
+  /** Browser-level warning when closing or reloading the tab with unsaved edits. */
+  protected onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.hasUnsavedChanges()) {
+      event.preventDefault();
+    }
   }
 
   /** The message to show under a field, or null when it is valid. */

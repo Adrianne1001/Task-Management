@@ -18,7 +18,9 @@ const PRIORITY_TONES: Record<ProjectPriority, string> = {
 /** The label is always shown as text, so colour is never the only signal. */
 @Component({
   selector: 'app-status-badge',
-  template: `<span [class]="'badge badge--' + tone()">{{ status() }}</span>`,
+  template: `<span [class]="'badge badge--' + tone()"
+    ><span class="badge__dot" aria-hidden="true"></span>{{ status() }}</span
+  >`,
   styleUrl: './badges.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -29,7 +31,9 @@ export class StatusBadge {
 
 @Component({
   selector: 'app-priority-badge',
-  template: `<span [class]="'badge badge--' + tone()">{{ priority() }}</span>`,
+  template: `<span [class]="'badge badge--' + tone()"
+    ><span class="badge__dot" aria-hidden="true"></span>{{ priority() }}</span
+  >`,
   styleUrl: './badges.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

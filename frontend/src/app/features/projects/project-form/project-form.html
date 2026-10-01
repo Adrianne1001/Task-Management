@@ -1,19 +1,38 @@
+<a class="back-link" routerLink="/projects">
+  <mat-icon aria-hidden="true">arrow_back</mat-icon>
+  All projects
+</a>
+
 <header class="page-header">
-  <h1>{{ isEdit() ? 'Edit project' : 'New project' }}</h1>
+  <div>
+    <h1>{{ isEdit() ? 'Edit project' : 'New project' }}</h1>
+    <p class="page-subtitle">
+      {{
+        isEdit()
+          ? 'Update the details, status or schedule of this project.'
+          : 'Add a client project to start tracking it.'
+      }}
+    </p>
+  </div>
 </header>
 
 @let load = loadState();
 
 @if (load.status === 'loading') {
-  <mat-progress-bar mode="indeterminate" aria-label="Loading project" />
+  <div class="form-card card loading-card">
+    <mat-progress-bar mode="indeterminate" aria-label="Loading project" />
+  </div>
 } @else if (load.status === 'error') {
-  <div class="state" role="alert">
-    <mat-icon aria-hidden="true">{{ load.notFound ? 'search_off' : 'error_outline' }}</mat-icon>
+  <div class="form-card card state" role="alert">
+    <span class="state__icon" [class.state__icon--error]="!load.notFound" aria-hidden="true">
+      <mat-icon>{{ load.notFound ? 'search_off' : 'error_outline' }}</mat-icon>
+    </span>
+    <p class="state__title">{{ load.notFound ? 'Project not found' : "Couldn't load project" }}</p>
     <p>{{ load.message }}</p>
-    <a mat-stroked-button routerLink="/projects">Back to projects</a>
+    <a mat-stroked-button class="state__actions" routerLink="/projects">Back to projects</a>
   </div>
 } @else {
-  <form class="project-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <form class="form-card card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     @if (formError(); as message) {
       <div class="form-error" role="alert">
         <mat-icon aria-hidden="true">error_outline</mat-icon>
@@ -21,89 +40,123 @@
       </div>
     }
 
-    <mat-form-field appearance="outline">
-      <mat-label>Client name</mat-label>
-      <input
-        matInput
-        formControlName="clientName"
-        autocomplete="organization"
-        required
-        [maxlength]="limits.clientName"
-      />
-      <mat-error>{{ errorFor('clientName') }}</mat-error>
-    </mat-form-field>
+    <fieldset class="section">
+      <legend class="section__header">
+        <span class="section__icon" aria-hidden="true"><mat-icon>badge</mat-icon></span>
+        <span>
+          <span class="section__title">Project details</span>
+          <span class="section__hint"
+            >Who it's for and what it is. Fields marked * are required.</span
+          >
+        </span>
+      </legend>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Project name</mat-label>
-      <input
-        matInput
-        formControlName="projectName"
-        autocomplete="off"
-        required
-        [maxlength]="limits.projectName"
-      />
-      <mat-error>{{ errorFor('projectName') }}</mat-error>
-    </mat-form-field>
+      <div class="grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Client name</mat-label>
+          <mat-icon matPrefix aria-hidden="true">business</mat-icon>
+          <input
+            matInput
+            formControlName="clientName"
+            autocomplete="organization"
+            required
+            [maxlength]="limits.clientName"
+          />
+          <mat-error>{{ errorFor('clientName') }}</mat-error>
+        </mat-form-field>
 
-    <mat-form-field appearance="outline" class="span-2">
-      <mat-label>Description</mat-label>
-      <textarea
-        matInput
-        formControlName="description"
-        rows="4"
-        [maxlength]="limits.description"
-      ></textarea>
-      <mat-hint align="end">{{ descriptionLength() }} / {{ limits.description }}</mat-hint>
-      <mat-error>{{ errorFor('description') }}</mat-error>
-    </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Project name</mat-label>
+          <mat-icon matPrefix aria-hidden="true">work_outline</mat-icon>
+          <input
+            matInput
+            formControlName="projectName"
+            autocomplete="off"
+            required
+            [maxlength]="limits.projectName"
+          />
+          <mat-error>{{ errorFor('projectName') }}</mat-error>
+        </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Status</mat-label>
-      <mat-select formControlName="status" required>
-        @for (status of statuses; track status) {
-          <mat-option [value]="status">{{ status }}</mat-option>
-        }
-      </mat-select>
-      <mat-error>{{ errorFor('status') }}</mat-error>
-    </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Description</mat-label>
+          <textarea
+            matInput
+            formControlName="description"
+            rows="4"
+            placeholder="Goals, scope or anything the team should know"
+            [maxlength]="limits.description"
+          ></textarea>
+          <mat-hint align="end">{{ descriptionLength() }} / {{ limits.description }}</mat-hint>
+          <mat-error>{{ errorFor('description') }}</mat-error>
+        </mat-form-field>
+      </div>
+    </fieldset>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Priority</mat-label>
-      <mat-select formControlName="priority" required>
-        @for (priority of priorities; track priority) {
-          <mat-option [value]="priority">{{ priority }}</mat-option>
-        }
-      </mat-select>
-      <mat-error>{{ errorFor('priority') }}</mat-error>
-    </mat-form-field>
+    <fieldset class="section">
+      <legend class="section__header">
+        <span class="section__icon" aria-hidden="true"><mat-icon>event_note</mat-icon></span>
+        <span>
+          <span class="section__title">Status &amp; schedule</span>
+          <span class="section__hint"
+            >Dates are optional; the due date can't be before the start.</span
+          >
+        </span>
+      </legend>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Start date</mat-label>
-      <input matInput formControlName="startDate" [matDatepicker]="startPicker" />
-      <mat-hint>Optional</mat-hint>
-      <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
-      <mat-datepicker #startPicker />
-      <mat-error>{{ errorFor('startDate') }}</mat-error>
-    </mat-form-field>
+      <div class="grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status" required>
+            @for (status of statuses; track status) {
+              <mat-option [value]="status"><app-status-badge [status]="status" /></mat-option>
+            }
+          </mat-select>
+          <mat-error>{{ errorFor('status') }}</mat-error>
+        </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Due date</mat-label>
-      <input
-        matInput
-        formControlName="dueDate"
-        [matDatepicker]="duePicker"
-        [min]="startDate()"
-        [errorStateMatcher]="dueDateMatcher"
-      />
-      <mat-hint>Optional · not before the start date</mat-hint>
-      <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
-      <mat-datepicker #duePicker />
-      <mat-error>{{ errorFor('dueDate') }}</mat-error>
-    </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Priority</mat-label>
+          <mat-select formControlName="priority" required>
+            @for (priority of priorities; track priority) {
+              <mat-option [value]="priority"
+                ><app-priority-badge [priority]="priority"
+              /></mat-option>
+            }
+          </mat-select>
+          <mat-error>{{ errorFor('priority') }}</mat-error>
+        </mat-form-field>
 
-    <div class="actions span-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Start date</mat-label>
+          <input matInput formControlName="startDate" [matDatepicker]="startPicker" />
+          <mat-hint>Optional</mat-hint>
+          <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
+          <mat-datepicker #startPicker />
+          <mat-error>{{ errorFor('startDate') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Due date</mat-label>
+          <input
+            matInput
+            formControlName="dueDate"
+            [matDatepicker]="duePicker"
+            [min]="startDate()"
+            [errorStateMatcher]="dueDateMatcher"
+          />
+          <mat-hint>Optional · not before the start date</mat-hint>
+          <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
+          <mat-datepicker #duePicker />
+          <mat-error>{{ errorFor('dueDate') }}</mat-error>
+        </mat-form-field>
+      </div>
+    </fieldset>
+
+    <div class="actions">
       <a mat-button routerLink="/projects">Cancel</a>
       <button mat-flat-button type="submit" [disabled]="saving()">
+        <mat-icon aria-hidden="true">{{ saving() ? 'hourglass_top' : 'check' }}</mat-icon>
         {{ saving() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create project' }}
       </button>
     </div>
