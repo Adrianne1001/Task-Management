@@ -2,6 +2,24 @@
 
 Guidance for Claude Code when working in this repository.
 
+## Session start — do this first, every session
+
+1. **Read `PLAN.md` in full before doing anything else**, even if the user's first message is short or unrelated.
+   Use it to know what's done, what's in progress (`[~]`), the decisions log, and the next unchecked item.
+2. Briefly tell the user where things stand (last progress log entry + next item) before starting work.
+
+## Session hygiene — remind the user to start a new session
+
+Proactively tell the user, in one short line at the end of a reply, when starting a fresh session is recommended:
+
+- A plan phase (a `##` section of `PLAN.md`) has just been completed and committed.
+- The conversation has accumulated a lot of file reads, large diffs, or long test/build output.
+- The work is about to switch area (e.g. backend → frontend, code → docs/submission).
+
+Before suggesting it, make sure `PLAN.md` (checkboxes + progress log) is updated and the work is committed, so the
+next session can pick up from `PLAN.md` alone. Suggest the opening prompt, e.g.
+*"Continue with PLAN.md §4 (API layer)."*
+
 ## What this is
 
 A technical assessment submission: a **Client Project Tracker** (CRUD for client projects).
