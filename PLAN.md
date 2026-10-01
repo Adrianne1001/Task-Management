@@ -23,15 +23,15 @@ Every requirement below must map to code + a test before submission.
 | R6 | POST /projects | `ProjectController@store` | `ProjectCrudTest` (201 + Location), `ProjectValidationTest` (422) |
 | R7 | PUT /projects/:id | `ProjectController@update` | `ProjectCrudTest` (200 + 404 + 422), `ProjectValidationTest` |
 | R8 | DELETE /projects/:id | `ProjectController@destroy` | `ProjectCrudTest` (204 + 404) |
-| R9 | UI: project list | `ProjectListComponent` | Manual + unit test |
-| R10 | UI: create project | `ProjectFormComponent` (create mode) | Manual + unit test |
-| R11 | UI: edit project | `ProjectFormComponent` (edit mode) | Manual + unit test |
-| R12 | UI: delete project | List action + confirm dialog | Manual |
-| V1 | Client Name required | `ProjectRequest` + Angular `Validators.required` | `ProjectValidationTest` (+ Angular unit test §7) |
-| V2 | Project Name required | `ProjectRequest` + Angular `Validators.required` | `ProjectValidationTest` (+ Angular unit test §7) |
+| R9 | UI: project list | `features/projects/project-list` (`ProjectList`) | `project-list.spec.ts` + browser smoke test |
+| R10 | UI: create project | `ProjectForm` (`/projects/new`) | `project-form.spec.ts` (create mode) + smoke test |
+| R11 | UI: edit project | `ProjectForm` (`/projects/:id/edit`) | `project-form.spec.ts` (edit mode) + smoke test |
+| R12 | UI: delete project | List action + `ConfirmDialog` | `project-list.spec.ts` (confirm + cancel) + smoke test |
+| V1 | Client Name required | `ProjectRequest` + Angular `Validators.required` / `notBlank` | `ProjectValidationTest`, `project-form.spec.ts`, `project-validators.spec.ts` |
+| V2 | Project Name required | `ProjectRequest` + Angular `Validators.required` / `notBlank` | `ProjectValidationTest`, `project-form.spec.ts`, `project-validators.spec.ts` |
 | V3 | Status must be valid | `Rule::enum(ProjectStatus::class)` in `ProjectRequest` | `ProjectValidationTest` |
 | V4 | Priority must be valid | `Rule::enum(ProjectPriority::class)` in `ProjectRequest` | `ProjectValidationTest` |
-| V5 | Due Date ≥ Start Date | `after_or_equal:startDate` (when start date valid) + Angular cross-field validator | `ProjectValidationTest` (+ Angular unit test §7) |
+| V5 | Due Date ≥ Start Date | `after_or_equal:startDate` (when start date valid) + `dateRangeValidator` | `ProjectValidationTest`, `project-validators.spec.ts`, `project-form.spec.ts` |
 | V6 | Invalid requests → meaningful errors | `App\Exceptions\ApiExceptionRenderer` — one `{ message, errors? }` envelope (401/404/405/419/422/429/500) | `ErrorHandlingTest`, `AuthTest` |
 | S1 | Public GitHub repo, setup/run instructions, technical reflection, AI disclosure (SUBMISSION/README) | Root `README.md`, `docs/` | Checklist §9 |
 | D1 | Seed data = `test_data.json` (12 projects, ids preserved) | `ProjectSeeder` + `database/data/projects.json` | Seeder test |
@@ -40,7 +40,7 @@ Every requirement below must map to code + a test before submission.
 
 ## 1. Repository & Environment Setup
 
-- [~] Confirm repo layout (monorepo) — `/backend` done, `/frontend` pending (§7): `/backend` (Laravel), `/frontend` (Angular), root `README.md`, `PLAN.md`, `CLAUDE.md`, `docs/`
+- [x] Confirm repo layout (monorepo): `/backend` (Laravel), `/frontend` (Angular), root `README.md`, `PLAN.md`, `CLAUDE.md`, `docs/`
 - [x] Root `.gitignore` / `.editorconfig` / `.gitattributes` (LF, 4-space PHP, 2-space TS)
 - [x] Copy `test_data.json` into `backend/database/data/projects.json` (unchanged)
 - [x] Create MySQL database `client_project_tracker` (utf8mb4) + dedicated DB user `cpt_app` (grants on that DB only; random password in `.env`) on WAMP MySQL 9.1 @ 3306
@@ -122,24 +122,25 @@ Every requirement below must map to code + a test before submission.
 
 ## 7. Frontend — Angular
 
-- [ ] `ng new frontend` (standalone components, routing, SCSS, strict mode)
-- [ ] Angular Material (Q3): table + sort, dialog, snackbar, datepicker, select, form-field
-- [ ] Structure:
-  - `core/` — `ProjectService`, `AuthService` (signals for current user), interceptors (`withCredentials`, error → 401 redirects to login), `withXsrfConfiguration` (XSRF-TOKEN / X-XSRF-TOKEN), `environment.apiUrl`
-  - `shared/` — confirm dialog, toast/snackbar, loading spinner, status/priority badge components
-  - `features/projects/` — `project-list`, `project-form`, models
-  - `models/` — `Project` interface, **TS enums** `ProjectStatus`, `ProjectPriority`, `SortDirection` (values identical to backend)
-- [ ] Dev proxy (`proxy.conf.json`) for `/api` and `/sanctum` → Laravel, so the SPA and API share an origin (needed for cookie auth; no CORS in dev)
-- [ ] Routes: `/login`, `/projects` (list), `/projects/new`, `/projects/:id/edit`, `**` → not found; functional `authGuard` on project routes
-- [ ] Project list: table/cards with client, project, status badge, priority badge, dates; empty / loading / error states
-- [ ] Bonus on list: search box (debounced), status & priority filters, sortable columns (server-side via query params)
-- [ ] Project form (typed Reactive Forms): required validators (names, status, priority), enum dropdowns, optional date pickers, **cross-field validator** `dueDate >= startDate` (only when both set), inline error messages, disable submit while saving
-- [ ] Map backend 422 `errors` onto form controls (server is still the authority)
-- [ ] Delete: confirmation dialog → success toast → list refresh
-- [ ] Global HTTP error interceptor → friendly messages for 0/404/422/429/500
-- [ ] Accessibility: labels, keyboard navigation, focus on first invalid field
-- [ ] Responsive layout
-- [ ] Unit tests: `ProjectService` (HttpTestingController), date-range validator, form component basics
+- [x] Scaffold: **Angular 21 LTS** (Q14) — standalone components, routing, SCSS, strict TS + strict templates, zoneless, Vitest/jsdom; OnPush + signals throughout. `npm ci` works on stock npm 10 (scaffold-time `npm install` hit an npm 10.9 arborist bug, so the lockfile was resolved once with npm 11); `piscina` overridden to 5.3.2 (critical advisory in `@angular/build`'s pinned 5.2.0) → `npm audit` 0 vulnerabilities
+- [x] Angular Material (Q3): table + sort, dialog, snackbar, datepicker (native adapter), select, form-field, progress bar, tooltip; M3 theme via `mat.theme()`
+- [x] Structure:
+  - `core/` — `AuthService` (signal `user`, one `/auth/me` check per page load, CSRF cookie → login, logout), `authGuard` / `guestGuard`, `apiErrorInterceptor`, `ApiError`, `NotificationService`, `API_URL` token (`/api`, relative) + `withXsrfConfiguration` (XSRF-TOKEN / X-XSRF-TOKEN). No `withCredentials` interceptor: the SPA and API share an origin via the proxy (Q16)
+  - `shared/` — `ConfirmDialog` + `confirmAction()`, `StatusBadge` / `PriorityBadge`, `notBlank` + `dateRangeValidator`, local-time date helpers (`fromApiDate` / `toApiDate`)
+  - `features/` — `projects/` (`ProjectService`, `project-list`, `project-form`), `auth/login`, `not-found`
+  - `models/` — `Project`, `ProjectInput`, `ProjectQuery`, **TS enums** `ProjectStatus`, `ProjectPriority`, `ProjectSortField`, `SortDirection` (values identical to backend; a spec pins them), `PROJECT_LIMITS` (max lengths shared with the API)
+- [x] Dev proxy (`proxy.conf.json`, wired into `ng serve`) for `/api` and `/sanctum` → `127.0.0.1:8000`
+- [x] Routes (lazy `loadComponent`): `/login` (guest), `/projects`, `/projects/new`, `/projects/:id/edit` (auth), `''` → `/projects`, `**` → not found; `withComponentInputBinding()`; page titles "X · Client Project Tracker"; login honours `returnUrl` (in-app paths only — no open redirect)
+- [x] Project list: Material table — client, project (+ 1-line description), status badge, priority badge, dates, edit/delete; loading bar (keeps previous rows), error state with retry, empty + "no matches" states
+- [x] Bonus on list: debounced search (300 ms), status & priority filters, server-side sortable headers; **all list state in the URL query string** (refresh/back/links keep the view; unknown values dropped via enum whitelists)
+- [x] Project form (typed Reactive Forms, one component for create + edit): `required` + `notBlank` (whitespace-only rejected, like the API's trim) + `maxLength` from `PROJECT_LIMITS`, enum dropdowns, optional date pickers, group validator `dueDate >= startDate` (only when both set) shown on the Due date field via an `ErrorStateMatcher`, inline messages, submit disabled while saving, description counter; edit loads by id (404 / non-numeric id → not-found state)
+- [x] Map backend 422 `errors` onto form controls (`server` error key; unmatched keys shown in a form-level alert)
+- [x] Delete: confirmation dialog (focus starts on Cancel) → success toast → list refresh
+- [x] Global HTTP error interceptor → every failure becomes an `ApiError` with a friendly message for 0/401/403/404/419/422/429/5xx (server text kept only for 403/404/422); 401/419 outside the auth endpoints → clear session, toast, redirect to `/login?returnUrl=…`
+- [x] Accessibility: labels on every field, `aria-label` on icon buttons, focus moves to the first invalid field on submit, skip link, table caption, badges always show text (not colour-only), toasts announced via live region (errors assertive)
+- [x] Responsive layout: filters wrap; table scrolls inside its card with a sticky actions column; dates/description hidden < 600 px; single-column form on phones — verified at 390 px (no page-level horizontal scroll)
+- [x] Unit tests (Vitest, 67 passing): enum parity, date helpers, validators, `ApiError`, interceptor (401/419 redirect, auth endpoints exempt), `AuthService` + guards, `ProjectService` (HttpTestingController), `ProjectForm` (required/blank/date-range/focus/payload/422 mapping/edit/404), `ProjectList` (Material harnesses: rows, URL filters, debounce, sort, empty/error states, delete confirm/cancel), `App` shell
+- [x] Browser smoke test against Laravel + MySQL (headless Chrome, Playwright, not committed): guard → login (bad + good password) → returnUrl → list/sort/search/filter → create (required + date-range errors) → edit → delete → missing project → 404 → phone width → sign out
 
 ## 8. Optional Extras (only if time allows — quality over quantity)
 
@@ -188,6 +189,9 @@ Every requirement below must map to code + a test before submission.
 | Q11 | PATCH on `/projects/:id`? | **Not supported (405)** — spec lists PUT; PUT is a full replacement (2026-10-02) |
 | Q12 | Is `GET /api/meta/enums` public? | **Behind `auth:sanctum`** like the data endpoints — the login page doesn't need it; simpler rule: everything except login requires a session (2026-10-02) |
 | Q13 | Project `Policy`? | **Dropped** — no ownership in the spec's model; authorization = authenticated (2026-10-02) |
+| Q14 | Angular 22 or 21? (22 needs Node ≥ 22.22; this machine and many reviewers have Node 22.12–22.21) | **Angular 21 LTS** — runs on Node ^20.19 / ^22.12 / ≥24, still in LTS (2026-10-02) |
+| Q15 | Frontend dropdowns from `GET /api/meta/enums` or TS enums? | **TS enums** (required by CLAUDE.md; no extra request or loading state); a spec pins the values to the backend's. The meta endpoint stays for other clients (2026-10-02) |
+| Q16 | Cross-origin SPA (CORS + `withCredentials`) or same origin? | **Same origin** via the dev proxy (prod: serve both behind one host). Angular only adds the XSRF header to relative URLs, and Sanctum cookies need a shared site anyway; CORS config stays locked down as a fallback (2026-10-02) |
 | Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
@@ -200,3 +204,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-02 — §4 done on `feature/backend-API-Layer`: explicit project routes, thin `ProjectController` + `ProjectService`, `ProjectRequest` (store/update), `IndexProjectRequest` → `ProjectFilters`, `ProjectResource`, search/filter/sort/opt-in pagination, `GET /api/meta/enums`; 107 tests green (SQLite), Pint clean, sort/search queries verified on MySQL. Next: §5 security & error handling.
 - 2026-10-02 — §5 done on `feature/security`: `ApiExceptionRenderer` (uniform JSON errors, no leaks), `ForceJsonResponse`, `SecurityHeaders`, `api`/`login` rate limiters, Sanctum SPA auth (`AuthController` login/logout/me) with all data routes behind `auth:sanctum`; 133 tests green, Pint clean, cookie+CSRF flow verified live on MySQL. Next: §6 portability check, then §7 frontend.
 - 2026-10-02 — §6 done on `feature/backend-tests`: portability check — full suite green on SQLite and MySQL (`client_project_tracker_test`), `migrate:fresh --seed` verified on both. Next: §7 frontend on `feature/frontend`.
+- 2026-10-02 — §7 done on `feature/frontend`: Angular 21 + Material SPA — Sanctum login, guarded routes, project list (URL-synced search/filters/server sort), create/edit form (client validation mirroring the API + 422 mapping), delete confirm, global error interceptor, responsive + a11y; 67 Vitest tests green, prod build clean, `npm audit` 0; full flow verified in headless Chrome against Laravel + MySQL. Next: §9 documentation & submission (§8 extras optional).
