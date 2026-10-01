@@ -46,7 +46,7 @@ Every requirement below must map to code + a test before submission.
 - [x] Create MySQL database `client_project_tracker` (utf8mb4) + dedicated DB user `cpt_app` (grants on that DB only; random password in `.env`) on WAMP MySQL 9.1 @ 3306
 - [x] Force `InnoDB` engine in `config/database.php` (WAMP defaults to MyISAM → no transactions/FKs, 1000-byte key limit broke migrations)
 - [x] Angular CLI: use `npx @angular/cli` at scaffold time (no global install needed)
-- [~] Work on `devsite` branch; small, descriptive commits per phase; PR to `main` at the end — ongoing convention; PR happens in §9
+- [~] Branch per phase (`feature/<area>`, e.g. `feature/backend-domain`) off `main`; small, descriptive commits; PR → `main` when the phase is done, so `main` always holds the latest finished work — ongoing convention (Q8)
 
 ## 2. Backend — Laravel Scaffold & Config
 
@@ -167,7 +167,7 @@ Every requirement below must map to code + a test before submission.
 - [ ] Draft short technical reflection answers (`docs/REFLECTION.md`)
 - [ ] Final traceability check: every row in §0 ticked
 - [ ] Fresh-clone test: follow README from scratch on a clean checkout
-- [ ] Merge `devsite` → `main`; make GitHub repo **public**
+- [ ] All phase PRs merged into `main`; make GitHub repo **public**
 - [ ] Submit via the official form: repo link, setup instructions, reflection answers
 
 ---
@@ -183,9 +183,11 @@ Every requirement below must map to code + a test before submission.
 | Q5 | Docker / CI / deployment in scope? | _default: optional extras, after core is done_ |
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
 | Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite**. README must state SQLite is a reviewer convenience only; MySQL (WAMP) is the intended database (2026-10-01) |
+| Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
 
 - 2026-10-01 — Read assessment, created `PLAN.md` and `CLAUDE.md`; decided Q1–Q4.
 - 2026-10-01 — §1/§2: repo config files, Laravel 12 + Sanctum scaffolded, MySQL env, CORS locked down, seed data copied. DB creation waiting on MySQL service.
 - 2026-10-01 — MySQL DB + `cpt_app` user created; InnoDB forced; default migrations run on MySQL.
+- 2026-10-01 — Removed Claude co-author trailers from history; branches made linear; switched to branch-per-phase workflow (`feature/backend-domain` for §3).
