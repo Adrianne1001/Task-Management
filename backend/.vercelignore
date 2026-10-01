@@ -1,0 +1,12 @@
+# Vercel installs Composer dependencies itself; never upload local state or secrets.
+/vendor
+/node_modules
+.env
+.env.*
+/storage/logs/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/cache/data/*
+/bootstrap/cache/*.php
+/database/*.sqlite
+/tests

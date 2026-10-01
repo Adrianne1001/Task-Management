@@ -18,6 +18,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Global, so headers are also set on responses for unmatched routes.
         $middleware->append(SecurityHeaders::class);
 
+        // Opt-in, for hosts behind a proxy (e.g. Vercel), so rate limits key on the client IP
+        // and not the proxy's. Off by default: trusting X-Forwarded-* lets clients spoof their IP.
+        if ($proxies = env('TRUSTED_PROXIES')) {
+            $middleware->trustProxies(at: $proxies === '*' ? '*' : explode(',', $proxies));
+        }
+
         $middleware->api(prepend: [ForceJsonResponse::class]);
 
         // Sanctum SPA cookie auth: sessions + CSRF for requests from SANCTUM_STATEFUL_DOMAINS.

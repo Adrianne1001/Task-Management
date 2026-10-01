@@ -177,7 +177,12 @@ From §8 on, tasks are split across agents to save time and keep the main contex
   - Login: split brand panel + form, show/hide password; 404 page and confirm dialog restyled
   - Kept every contract the specs rely on (cell text, `role="alert"`, `h1`, form controls); no existing assertion changed. Tests 67 → 92 (`ThemeService`, `project-display`, guard, new `Login` spec, form unsaved changes, list summary/tags/row click/shortcut). Prod build: no warnings, initial bundle 487 → 493 kB (toolbar tooltip dropped and the dialog kept out of the initial chunk to stay under the 500 kB budget); `anyComponentStyle` budget 4 → 8 kB for the list's responsive styles
   - Browser regression run (e2e-qa agent, Playwright vs Laravel + MySQL, desktop + 390 px): 14/14 checks pass — auth + returnUrl, list counts/tags, search/filters/sort in the URL, back/forward, `/` shortcut, row click, create/edit/delete with all validation messages, unsaved-changes prompt, not-found states, dark-mode persistence + contrast scan (no text < 4.5:1), no horizontal scroll on phones, sign-out; no unexpected console errors; DB left at 12 projects. Fixed its one visual finding (password toggle stole focus → outline notch glitch). Known, unchanged: filters use `replaceUrl` (back skips filter steps); a 429 on logout still clears the local session
-- [ ] Deployment (only if requested)
+- [~] Deployment to Vercel (requested 2026-10-02, branch `feature/deploy`) — *orchestrator*. Two Vercel projects from one repo + TiDB Cloud Starter (free, MySQL-compatible); guide in `docs/DEPLOYMENT.md`
+  - [x] API: `backend/vercel.json` (`vercel-php@0.7.4` = PHP 8.3, all routes → `api/index.php`), `backend/api/index.php` (resets `SCRIPT_NAME` so Symfony doesn't strip `/api` as a base path — found by the local smoke test), `backend/.vercelignore`; Laravel caches/views → `/tmp`, logs → `stderr`, sessions/cache in DB
+  - [x] SPA: `frontend/vercel.json` (build → `dist/frontend/browser`, rewrites `/api` + `/sanctum` to the API project for one origin, SPA fallback, basic security headers)
+  - [x] `TRUSTED_PROXIES` env (opt-in) in `bootstrap/app.php` so rate limits key on the client IP behind Vercel
+  - [x] Local smoke test of the Vercel entry point with `/tmp`-style cache env: `/up` 200, csrf-cookie 204, login 200, projects 200; 133 backend tests green, Pint clean
+  - [ ] Accounts + live deploy (user: TiDB cluster, two Vercel projects, env vars), then verify the live login → CRUD flow
 
 ## 9. Documentation & Submission (SUBMISSION.md)
 
@@ -199,8 +204,8 @@ From §8 on, tasks are split across agents to save time and keep the main contex
 - [x] `backend/README.md` Laravel boilerplate replaced with a short pointer to the root README
 - [x] Final traceability check: every row in §0 maps to existing code + tests (S1 → README + `docs/REFLECTION.md`)
 - [x] Fresh-clone test: clean clone of `feature/docs`, README SQLite path → `composer install`, `migrate:fresh --seed` (12 projects + 1 user), 133 backend tests, Pint clean; `npm ci` (0 vulnerabilities), 67 frontend tests, prod build; `php artisan serve` + `npm start` → CSRF cookie, login and project list through the dev proxy. MySQL path already verified in §6
-- [~] All phase PRs merged into `main`; make GitHub repo **public** — `feature/docs` PR open; making the repo public is the user's step
-- [ ] Submit via the official form: repo link, setup instructions, reflection answers (user)
+- [x] All phase PRs merged into `main`; GitHub repo made **public** (user, 2026-10-02)
+- [x] Submit via the official form: repo link, setup instructions, reflection answers (user, 2026-10-02)
 
 ---
 
@@ -223,6 +228,7 @@ From §8 on, tasks are split across agents to save time and keep the main contex
 | Q14 | Angular 22 or 21? (22 needs Node ≥ 22.22; this machine and many reviewers have Node 22.12–22.21) | **Angular 21 LTS** — runs on Node ^20.19 / ^22.12 / ≥24, still in LTS (2026-10-02) |
 | Q15 | Frontend dropdowns from `GET /api/meta/enums` or TS enums? | **TS enums** (required by CLAUDE.md; no extra request or loading state); a spec pins the values to the backend's. The meta endpoint stays for other clients (2026-10-02) |
 | Q16 | Cross-origin SPA (CORS + `withCredentials`) or same origin? | **Same origin** via the dev proxy (prod: serve both behind one host). Angular only adds the XSRF header to relative URLs, and Sanctum cookies need a shared site anyway; CORS config stays locked down as a fallback (2026-10-02) |
+| Q17 | Free hosting with a working DB? | **Vercel (SPA + Laravel via `vercel-php`) + TiDB Cloud Starter** (free MySQL-compatible, TLS). Two projects, SPA proxies `/api` & `/sanctum` so Sanctum cookies stay first-party (`*.vercel.app` is a public suffix). Supersedes "no deployment" in Q5 (2026-10-02) |
 | Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
@@ -239,3 +245,4 @@ From §8 on, tasks are split across agents to save time and keep the main contex
 - 2026-10-02 — §9 on `feature/docs`: root `README.md` (features, prerequisites, MySQL-first setup + SQLite quick start, tests, API reference with real responses, architecture, decisions, assumptions, limitations, AI disclosure), `docs/REFLECTION.md`, backend README boilerplate replaced; fresh-clone test passed. Remaining: review/merge PR, make repo public, submit the form (user). §8 extras still optional.
 - 2026-10-02 — §8 on `feature/extras`: adopted the orchestrator + subagents model (§8.0); three parallel subagents wrote the OpenAPI spec, CI workflow and Docker Compose setup; orchestrator reviewed the diffs, re-ran checks, updated README (Docker quick start, CI badges, spec link, limitations, AI disclosure) and REFLECTION. CI and Docker workflows green on GitHub. Next: open PR `feature/extras` → `main` (user; `gh` not installed), then make the repo public / submit (§9).
 - 2026-10-02 — UI/UX refresh on `feature/ui-ux` (PLAN §8.1): modern theme + dark mode, summary cards, overdue tags, clickable rows, `/` search shortcut, skeletons, phone card layout, sectioned form with unsaved-changes prompt, split login with password toggle; 92 frontend tests (was 67), no existing assertion changed, prod build clean; browser regression run 14/14. `docs/REFLECTION.md` rewritten around the submission form's five actual questions (plain-text copy saved outside the repo for pasting). Next: PR `feature/ui-ux` → `main`, then submit (§9).
+- 2026-10-02 — §9 closed (PRs merged, repo public, form submitted by the user). Deployment prep on `feature/deploy`: Vercel configs for API + SPA, `TRUSTED_PROXIES`, `docs/DEPLOYMENT.md`; entry point smoke-tested locally (fixed `/api` base-path stripping). Next: user creates TiDB + Vercel projects per the guide, then verify live.

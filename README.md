@@ -418,8 +418,9 @@ The full log, with dates, is in [`PLAN.md`](PLAN.md#open-questions--decisions-lo
 
 ## Known limitations & future improvements
 
-- **No deployment.** The Docker setup is for local review (demo credentials, seeded demo user). Production would
-  need real secrets, HTTPS and a non-demo seeding policy.
+- **Demo-grade deployment only.** Docker is for local review, and the free Vercel + TiDB setup in
+  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) is a public demo (shared demo account, serverless cold starts). Production
+  would need real accounts, a non-demo seeding policy and a host with a persistent PHP process.
 - **The OpenAPI spec is hand-written**, so it can drift from the code. Generating it, or testing responses
   against it, would keep the two in sync.
 - **The UI loads the full list.** The API supports pagination, but with 12 records the UI doesn't use it. A larger
