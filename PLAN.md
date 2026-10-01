@@ -18,20 +18,20 @@ Every requirement below must map to code + a test before submission.
 | R1 | Project model: id, clientName, projectName, description, status, priority, startDate, dueDate (REQUIREMENTS) | migration, `Project` model, `ProjectResource`, TS `Project` interface | Feature test: resource shape |
 | R2 | Status ∈ Planning, In Progress, On Hold, Completed | `App\Enums\ProjectStatus`, TS `ProjectStatus` enum | Validation tests |
 | R3 | Priority ∈ Low, Medium, High | `App\Enums\ProjectPriority`, TS `ProjectPriority` enum | Validation tests |
-| R4 | GET /projects | `ProjectController@index` | Feature test |
-| R5 | GET /projects/:id | `ProjectController@show` | Feature test (200 + 404) |
-| R6 | POST /projects | `ProjectController@store` | Feature test (201 + 422) |
-| R7 | PUT /projects/:id | `ProjectController@update` | Feature test (200 + 404 + 422) |
-| R8 | DELETE /projects/:id | `ProjectController@destroy` | Feature test (204 + 404) |
+| R4 | GET /projects | `ProjectController@index` → `ProjectService::list()` | `ProjectCrudTest`, `ProjectIndexQueryTest` |
+| R5 | GET /projects/:id | `ProjectController@show` | `ProjectCrudTest` (200 + 404) |
+| R6 | POST /projects | `ProjectController@store` | `ProjectCrudTest` (201 + Location), `ProjectValidationTest` (422) |
+| R7 | PUT /projects/:id | `ProjectController@update` | `ProjectCrudTest` (200 + 404 + 422), `ProjectValidationTest` |
+| R8 | DELETE /projects/:id | `ProjectController@destroy` | `ProjectCrudTest` (204 + 404) |
 | R9 | UI: project list | `ProjectListComponent` | Manual + unit test |
 | R10 | UI: create project | `ProjectFormComponent` (create mode) | Manual + unit test |
 | R11 | UI: edit project | `ProjectFormComponent` (edit mode) | Manual + unit test |
 | R12 | UI: delete project | List action + confirm dialog | Manual |
-| V1 | Client Name required | `ProjectRequest` + Angular `Validators.required` | Test |
-| V2 | Project Name required | `ProjectRequest` + Angular `Validators.required` | Test |
-| V3 | Status must be valid | `Rule::enum(ProjectStatus::class)` | Test |
-| V4 | Priority must be valid | `Rule::enum(ProjectPriority::class)` | Test |
-| V5 | Due Date ≥ Start Date | `after_or_equal:startDate` + Angular cross-field validator | Test |
+| V1 | Client Name required | `ProjectRequest` + Angular `Validators.required` | `ProjectValidationTest` (+ Angular unit test §7) |
+| V2 | Project Name required | `ProjectRequest` + Angular `Validators.required` | `ProjectValidationTest` (+ Angular unit test §7) |
+| V3 | Status must be valid | `Rule::enum(ProjectStatus::class)` in `ProjectRequest` | `ProjectValidationTest` |
+| V4 | Priority must be valid | `Rule::enum(ProjectPriority::class)` in `ProjectRequest` | `ProjectValidationTest` |
+| V5 | Due Date ≥ Start Date | `after_or_equal:startDate` (when start date valid) + Angular cross-field validator | `ProjectValidationTest` (+ Angular unit test §7) |
 | V6 | Invalid requests → meaningful errors | Consistent JSON error envelope (422/404/405/429/500) | Test |
 | S1 | Public GitHub repo, setup/run instructions, technical reflection, AI disclosure (SUBMISSION/README) | Root `README.md`, `docs/` | Checklist §9 |
 | D1 | Seed data = `test_data.json` (12 projects, ids preserved) | `ProjectSeeder` + `database/data/projects.json` | Seeder test |
@@ -74,23 +74,23 @@ Every requirement below must map to code + a test before submission.
 
 ## 4. Backend — API Layer
 
-- [ ] `routes/api.php`: `Route::apiResource('projects', ProjectController::class)` (index, show, store, update, destroy only)
-- [ ] `ProjectController` — thin; delegates to a `ProjectService` (or action classes) for query/filter logic
-- [ ] `StoreProjectRequest` / `UpdateProjectRequest` (PUT = full replacement, same rules):
-  - `clientName` required|string|max:150 · `projectName` required|string|max:150
+- [x] `routes/api.php`: the five spec routes declared explicitly (named `projects.*`, `whereNumber('project')`) instead of `apiResource`, so updates accept **PUT only** (PATCH → 405; Q11)
+- [x] `ProjectController` — thin; delegates to `App\Services\ProjectService` (list/create/update/delete)
+- [x] `ProjectRequest` — **one** Form Request for store + update (PUT = full replacement, identical rules; replaces the planned Store/Update pair):
+  - `clientName` required|string|max:150 · `projectName` required|string|max:150 (limits from `Project::*_MAX_LENGTH`)
   - `description` nullable|string|max:2000
   - `status` required|`Rule::enum(ProjectStatus::class)` · `priority` required|`Rule::enum(ProjectPriority::class)`
-  - `startDate` nullable|date_format:Y-m-d · `dueDate` nullable|date_format:Y-m-d, plus `after_or_equal:startDate` **only when startDate is filled** (`Rule::when`) — Laravel otherwise fails the comparison against a null field
-  - Custom, human-readable messages (e.g. "Status must be one of: Planning, In Progress, On Hold, Completed.")
-  - Map camelCase input → snake_case attributes in one place (`validatedAttributes()`)
-- [ ] `ProjectResource` — camelCase output matching `test_data.json` shape exactly
-- [ ] Status codes: 200 list/show/update, 201 create (+ `Location` header), 204 delete, 404, 422, 429
-- [ ] Bonus (index query params, all whitelisted/validated via `IndexProjectRequest`):
-  - [ ] `search` (client/project name, parameter-bound `LIKE`)
-  - [ ] `status` filter · `priority` filter (validated against enums)
-  - [ ] `sort` (enum whitelist: clientName, projectName, status, priority, startDate, dueDate) + `direction` (asc|desc)
-  - [ ] Optional pagination (`page`, `perPage` capped e.g. 100)
-- [ ] `GET /meta/enums` (optional) so the frontend can render dropdowns from backend enums — single source of truth
+  - `startDate` / `dueDate` nullable|date_format:Y-m-d (rejects impossible dates like 2026-02-30); `after_or_equal:startDate` added via `Rule::when` **only when startDate is a valid date**, so a bad start date doesn't also flag the due date
+  - Custom, human-readable messages (e.g. "Status must be one of: Planning, In Progress, On Hold, Completed.") built from `Enum::valuesForHumans()`
+  - `validatedAttributes()` maps camelCase → snake_case in one place; always returns every attribute so omitted optional fields become null on PUT
+- [x] `ProjectResource` — camelCase output matching `test_data.json` exactly (no timestamps); wrapped in `{ "data": … }` (Q10)
+- [x] Status codes: 200 list/show/update, 201 create (+ `Location` header), 204 delete, 404 (missing / non-numeric id), 405 (PATCH), 422 — 429 comes with rate limiting in §5
+- [x] Bonus (index query params, all whitelisted/validated via `IndexProjectRequest` → typed `App\Data\ProjectFilters` DTO):
+  - [x] `search` (client/project name, parameter-bound `LIKE`, max 100 chars)
+  - [x] `status` filter · `priority` filter (validated against enums)
+  - [x] `sort` (enum whitelist: clientName, projectName, status, priority, startDate, dueDate) + `direction` (asc|desc); default order `id`, `id` tie-breaker; status/priority sort in **declared order** (Low < Medium < High) via a portable bound `CASE` expression (`ProjectSortField::orderedValues()`), not alphabetically
+  - [x] Opt-in pagination: only when `page` or `perPage` is sent (`perPage` default 15, max 100) → `data` + `links` + `meta`; links keep the query string
+- [x] `GET /api/meta/enums` → `{ data: { statuses, priorities, sortFields, sortDirections } }` so the frontend renders dropdowns from backend enums
 
 ## 5. Backend — Security & Error Handling
 
@@ -102,19 +102,19 @@ Every requirement below must map to code + a test before submission.
 - [ ] Rate limiting: `throttle:api` (e.g. 60 req/min per IP/user), stricter on login
 - [x] CORS (`config/cors.php`): only the Angular origin (`FRONTEND_URL`), only needed methods/headers — no `*`
 - [ ] Security headers middleware: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP for API responses
-- [ ] Mass-assignment protection (`$fillable`), Eloquent/bound params only (no raw SQL with input), whitelisted sort columns
-- [ ] Input hardening: max lengths, strict date format, reject unknown enum values, `trim` (default middleware)
+- [x] Mass-assignment protection (`$fillable`), Eloquent/bound params only (no raw SQL with input), whitelisted sort columns (enum → `column()`)
+- [x] Input hardening: max lengths, strict date format, reject unknown enum values, `trim` (default middleware) — covered by `ProjectValidationTest`
 - [ ] Authentication — **Sanctum SPA cookie auth** (Q2): `GET /sanctum/csrf-cookie`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`; `projects` routes behind `auth:sanctum`; `statefulApi()`; `SANCTUM_STATEFUL_DOMAINS` + `SESSION_DOMAIN` set; session regenerated on login, invalidated on logout; login throttled (5/min); seeded demo user (hashed password, credentials in README)
 - [ ] Secrets only in `.env` (never committed); `.env.example` documented
 - [ ] Optional: `Policy` for projects (structure for future roles)
 
 ## 6. Backend — Tests (PHPUnit / Pest)
 
-- [ ] Feature tests per endpoint: happy path + 404 + 422 cases
-- [ ] Validation matrix: missing clientName, missing projectName, invalid status, invalid priority, dueDate < startDate, dueDate == startDate (allowed), only one date given (allowed), both dates null (allowed), bad date format, over-length strings
-- [ ] Resource shape test (keys exactly match `test_data.json`)
+- [x] Feature tests per endpoint: happy path + 404 + 422 cases (`tests/Feature/Api/ProjectCrudTest.php`)
+- [x] Validation matrix (`ProjectValidationTest`, data providers run against both POST and PUT): missing clientName, missing projectName, invalid status, invalid priority, dueDate < startDate, dueDate == startDate (allowed), only one date given (allowed), both dates null (allowed), bad date format, over-length strings
+- [x] Resource shape test (keys exactly match `test_data.json`; seeded list equals the file exactly)
 - [x] Seeder test: 12 rows, values equal `test_data.json`, idempotent (`tests/Feature/Database/ProjectSeederTest.php`) + model/factory tests (`ProjectModelTest.php`)
-- [ ] Filter / search / sort tests; invalid sort column rejected
+- [x] Filter / search / sort / pagination tests; invalid sort column rejected (`ProjectIndexQueryTest`) + `MetaEnumsTest`
 - [ ] Auth tests: 401 on projects without session, login success/failure, logout, login throttling
 - [x] Unit tests for enums (`values()`, `from()` failure) — `tests/Unit/Enums/EnumTest.php`
 - [x] Test DB: SQLite in-memory configured in `phpunit.xml` (Q7) — reviewers can run tests with zero DB setup
@@ -184,6 +184,8 @@ Every requirement below must map to code + a test before submission.
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
 | Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite**. README must state SQLite is a reviewer convenience only; MySQL (WAMP) is the intended database (2026-10-01) |
 | Q9 | Demo user credentials for auth | **`demo@example.com` / `password`** via `DemoUserSeeder`; local-review only, documented in README (2026-10-01) |
+| Q10 | Response envelope? (spec doesn't define one) | **Laravel resource default `{ "data": … }`** for single + list responses — consistent with paginated `data/links/meta`; record keys inside match `test_data.json` exactly (2026-10-02) |
+| Q11 | PATCH on `/projects/:id`? | **Not supported (405)** — spec lists PUT; PUT is a full replacement (2026-10-02) |
 | Q8 | Branching workflow | **Branch per phase + PR into `main`**; history kept linear, no AI attribution in commits (2026-10-01) |
 
 ## Progress Log
@@ -193,3 +195,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-01 — MySQL DB + `cpt_app` user created; InnoDB forced; default migrations run on MySQL.
 - 2026-10-01 — Removed Claude co-author trailers from history; branches made linear; switched to branch-per-phase workflow (`feature/backend-domain` for §3).
 - 2026-10-01 — §3 done: enums (+ sort field/direction), `projects` migration, `Project` model, factory, `ProjectSeeder` (upsert on id) + `DemoUserSeeder`; 18 tests green; `migrate:fresh --seed` verified on MySQL. Next: §4 API layer.
+- 2026-10-02 — §4 done on `feature/backend-API-Layer`: explicit project routes, thin `ProjectController` + `ProjectService`, `ProjectRequest` (store/update), `IndexProjectRequest` → `ProjectFilters`, `ProjectResource`, search/filter/sort/opt-in pagination, `GET /api/meta/enums`; 107 tests green (SQLite), Pint clean, sort/search queries verified on MySQL. Next: §5 security & error handling.
