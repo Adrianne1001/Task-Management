@@ -144,9 +144,31 @@ Every requirement below must map to code + a test before submission.
 
 ## 8. Optional Extras (only if time allows — quality over quantity)
 
-- [ ] Docker Compose (php-fpm/nginx, mysql, angular) — Docker not currently installed locally
-- [ ] OpenAPI spec or Postman collection in `docs/`
-- [ ] GitHub Actions CI: backend tests + Pint, frontend lint + tests + build
+Branch: `feature/extras`.
+
+### 8.0 Working model — one orchestrator, several subagents
+
+From §8 on, tasks are split across agents to save time and keep the main context small:
+
+- **Orchestrator (main session):** reads `PLAN.md`, checks scope against the assessment files, splits the phase into
+  independent tasks, writes each subagent's brief, then **reviews every diff**. It also re-runs the checks, does all
+  edits to `PLAN.md` / `README.md`, and makes every commit.
+- **Subagents (one per task, run in parallel):** each gets a self-contained brief: goal, the files it **owns**
+  (no two agents touch the same file), the conventions it must follow (`CLAUDE.md`) and how to verify its work.
+  Subagents never commit, never edit `PLAN.md` / `README.md` / `CLAUDE.md`, and report back with the files they
+  changed, the commands they ran and their results, and any open questions or deviations from the spec.
+- **When to use it:** independent work with disjoint files (e.g. Docker vs CI vs API spec). Sequential or tightly
+  coupled work (one feature across controller + request + test) stays in one agent.
+- Add new tasks below as `8.x` items, noting the owning agent and the files it owns.
+
+### 8.1 Tasks
+
+- [x] OpenAPI 3.1 spec `docs/openapi.yaml` — *agent: api-spec* (owns `docs/openapi.yaml`): every endpoint incl. `/sanctum/csrf-cookie` (path-level server override), cookie + XSRF security schemes, index query params with exact limits, plain vs paginated list (`oneOf`), reusable 401/404/405/419/422/429/500 responses with real messages, examples from `projects.json`. `redocly lint`: valid, 5 deliberate warnings (localhost servers, no license, csrf-cookie has no 4xx, PATCH documented as 405-only). README API reference fixed where the agent found it imprecise (csrf-cookie public, login 419, guest rate limit per IP)
+- [~] GitHub Actions CI `.github/workflows/ci.yml` — *agent: ci* (owns `.github/workflows/ci.yml`): jobs `backend-sqlite` (Pint `--test` + tests), `backend-mysql` (`mysql:9.1` service, app + test DB with least-privilege user, tests, `migrate:fresh --seed`, asserts 12 rows), `frontend` (`npm ci`, Prettier check, `npm test -- --watch=false`, prod build, non-blocking `npm audit`). All commands pass locally (133 + 133 MySQL backend, 67 frontend); actionlint clean. Awaiting first green run on GitHub
+- [~] Docker Compose (nginx serving the Angular build + proxying `/api` & `/sanctum` → php-fpm, MySQL) — *agent: docker* (owns `docker-compose.yml`, `docker/`, `.dockerignore` files, `.github/workflows/docker.yml`). Docker is not installed locally, so a CI workflow builds the stack and smoke-tests it
+  - `db` `mysql:9.1` (random root password, app user scoped to its DB, not published to the host) · `app` `php:8.3-fpm-alpine`, `--no-dev` vendor, `check-platform-reqs`, runs as `www-data`; entrypoint: APP_KEY (env or generated once into the storage volume) → wait for DB → `optimize` → `migrate --force` → idempotent seed · `web` `nginx-unprivileged` serving `dist/frontend/browser` with SPA fallback, `/api` + `/sanctum` via FastCGI → one origin at `http://localhost:8080`
+  - SPA `Referrer-Policy: strict-origin-when-cross-origin` (not `no-referrer`): Sanctum needs the Referer on same-origin GETs to treat them as stateful
+  - `docker/smoke-test.sh`: SPA + deep links, 401 without session, csrf-cookie 204, login without XSRF → 419, login → me → 12 projects → JSON 404 → logout. Passed locally against the real nginx config (nginx for Windows + php-cgi + SQLite); `docker.yml` runs it on the real stack (and again after restarting `app`). Awaiting first green run on GitHub
 - [ ] Deployment (only if requested)
 
 ## 9. Documentation & Submission (SUBMISSION.md)
@@ -182,7 +204,7 @@ Every requirement below must map to code + a test before submission.
 | Q2 | Authentication (Sanctum) in scope? Cookie-based SPA auth vs Bearer tokens | **Sanctum SPA cookie auth** + CSRF (2026-10-01) |
 | Q3 | Angular UI library: Angular Material vs Tailwind vs Bootstrap | **Angular Material** (2026-10-01) |
 | Q4 | Start/Due dates required, or optional (spec only requires names)? | **Both optional (nullable)**; due ≥ start enforced only when both present (2026-10-01) |
-| Q5 | Docker / CI / deployment in scope? | _default: optional extras, after core is done_ |
+| Q5 | Docker / CI / deployment in scope? | **Docker Compose + GitHub Actions CI + OpenAPI spec done as §8 extras; no deployment** (not requested). Docker image builds are verified in CI because Docker isn't installed locally (2026-10-02) |
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
 | Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite**. README must state SQLite is a reviewer convenience only; MySQL (WAMP) is the intended database (2026-10-01) |
 | Q9 | Demo user credentials for auth | **`demo@example.com` / `password`** via `DemoUserSeeder`; local-review only, documented in README (2026-10-01) |
@@ -207,3 +229,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-02 — §6 done on `feature/backend-tests`: portability check — full suite green on SQLite and MySQL (`client_project_tracker_test`), `migrate:fresh --seed` verified on both. Next: §7 frontend on `feature/frontend`.
 - 2026-10-02 — §7 done on `feature/frontend`: Angular 21 + Material SPA — Sanctum login, guarded routes, project list (URL-synced search/filters/server sort), create/edit form (client validation mirroring the API + 422 mapping), delete confirm, global error interceptor, responsive + a11y; 67 Vitest tests green, prod build clean, `npm audit` 0; full flow verified in headless Chrome against Laravel + MySQL. Next: §9 documentation & submission (§8 extras optional).
 - 2026-10-02 — §9 on `feature/docs`: root `README.md` (features, prerequisites, MySQL-first setup + SQLite quick start, tests, API reference with real responses, architecture, decisions, assumptions, limitations, AI disclosure), `docs/REFLECTION.md`, backend README boilerplate replaced; fresh-clone test passed. Remaining: review/merge PR, make repo public, submit the form (user). §8 extras still optional.
+- 2026-10-02 — §8 on `feature/extras`: adopted the orchestrator + subagents model (§8.0); three parallel subagents wrote the OpenAPI spec, CI workflow and Docker Compose setup; orchestrator reviewed the diffs, re-ran checks, updated README (Docker quick start, CI badges, spec link, limitations, AI disclosure) and REFLECTION. Next: confirm green CI + Docker runs on GitHub, then PR → `main`.

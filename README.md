@@ -1,5 +1,8 @@
 # Client Project Tracker
 
+[![CI](https://github.com/Adrianne1001/Task-Management/actions/workflows/ci.yml/badge.svg)](https://github.com/Adrianne1001/Task-Management/actions/workflows/ci.yml)
+[![Docker](https://github.com/Adrianne1001/Task-Management/actions/workflows/docker.yml/badge.svg)](https://github.com/Adrianne1001/Task-Management/actions/workflows/docker.yml)
+
 A small full-stack app for a digital agency to track client projects: list, create, edit and delete projects, with
 search, filters, sorting and sign-in. Built as a technical assessment.
 
@@ -12,7 +15,8 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 | Tests | 133 backend (PHPUnit) · 67 frontend (Vitest) |
 | Demo login | `demo@example.com` / `password` (local review only) |
 | API base URL | `http://localhost:8000/api` |
-| App URL | `http://localhost:4200` |
+| App URL | `http://localhost:4200` (`http://localhost:8080` with Docker) |
+| API spec | [`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.1) |
 
 **Contents:** [Features](#features) · [Prerequisites](#prerequisites) · [Setup](#setup--run) ·
 [Tests](#running-the-tests) · [API reference](#api-reference) · [Architecture](#architecture) ·
@@ -45,7 +49,9 @@ search, filters, sorting and sign-in. Built as a technical assessment.
 - The list's search, filters and sort live in the URL, so refresh, back/forward and shared links keep the view
 - Accessible and responsive: labelled fields, focus moves to the first invalid field, works at phone width
 
-Docker and deployment were not done; see [Known limitations](#known-limitations--future-improvements).
+Extras: a one-command [Docker Compose setup](#quick-start-with-docker), GitHub Actions CI (backend tests on SQLite
+and MySQL, Pint, frontend format check, tests and build, plus a Docker build + end-to-end smoke test), and an
+[OpenAPI 3.1 spec](docs/openapi.yaml). Deployment was not done.
 
 ---
 
@@ -59,6 +65,8 @@ Docker and deployment were not done; see [Known limitations](#known-limitations-
 | npm | 10+ | |
 | MySQL | 8.0+ (developed on 9.1 via WAMP) | Not needed for the SQLite quick start |
 
+With Docker you only need **Docker with Compose v2.17+**; see [Quick start with Docker](#quick-start-with-docker).
+
 ---
 
 ## Setup & run
@@ -70,6 +78,25 @@ cd Task-Management
 
 The app is **built for MySQL**, so the MySQL setup comes first. The SQLite option is **only a convenience** for
 reviewers who don't want to install MySQL. Both use the same migrations and seeders.
+
+### Quick start with Docker
+
+One command runs the whole stack (MySQL 9.1, Laravel on PHP-FPM, nginx serving the Angular build):
+
+```bash
+docker compose up -d --build      # first build takes a few minutes
+```
+
+Open **http://localhost:8080** and sign in with `demo@example.com` / `password`. The database is migrated and seeded
+on start. Stop and delete the data with `docker compose down -v`.
+
+- nginx serves the SPA and passes `/api` and `/sanctum` to PHP-FPM, so the SPA and API share one origin, as with
+  the dev proxy. MySQL is not exposed to the host, so it won't clash with a local MySQL on 3306.
+- The credentials in `docker-compose.yml` are **local-review defaults only**. Override them with `WEB_PORT`,
+  `DB_PASSWORD`, `APP_KEY` or `SEED_DATABASE=false` (environment variables or a root `.env`).
+- `bash docker/smoke-test.sh` runs the same end-to-end checks as the Docker CI workflow (needs curl, jq and python3).
+
+The manual setup below is how the app was developed, and is what to use for working on the code.
 
 ### 1. Backend: MySQL (primary)
 
@@ -189,14 +216,16 @@ DB_CONNECTION=mysql DB_DATABASE=client_project_tracker_test php artisan test
 ## API reference
 
 All endpoints are under **`/api`**. Requests and responses are JSON with camelCase keys that match
-`test_data.json`. Every endpoint except login requires a signed-in session.
+`test_data.json`. Every endpoint except login (and `GET /sanctum/csrf-cookie`) requires a signed-in session.
+The full contract is in [`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.1, can be opened in Swagger Editor or
+Redocly).
 
 ### Authentication (Sanctum SPA cookies)
 
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | GET | `/sanctum/csrf-cookie` | — | 204, sets the `XSRF-TOKEN` cookie | |
-| POST | `/api/auth/login` | `{ email, password }` | 200 `{ data: { id, name, email } }` | 422 wrong credentials, 429 after 5 tries per minute |
+| POST | `/api/auth/login` | `{ email, password }` | 200 `{ data: { id, name, email } }` | 419 missing CSRF token, 422 wrong credentials, 429 after 5 attempts per minute (per email + IP) |
 | POST | `/api/auth/logout` | — | 204 | 401 |
 | GET | `/api/auth/me` | — | 200 `{ data: { id, name, email } }` | 401 |
 
@@ -215,7 +244,7 @@ automatically.
 | GET | `/api/meta/enums` | — | 200 `{ data: { statuses, priorities, sortFields, sortDirections } }` | 401 |
 
 `PATCH` returns 405, because updates are full replacements via `PUT`. A non-numeric id returns 404. The API allows
-60 requests per minute per user, and returns 429 with a `Retry-After` header past that.
+60 requests per minute per signed-in user (per IP for guests), and returns 429 with a `Retry-After` header past that.
 
 **Project**
 
@@ -320,7 +349,11 @@ Task-Management/
 │       │   └── not-found/
 │       ├── shared/                  ConfirmDialog, status/priority badges, validators, date helpers
 │       └── models/                  Project types + TypeScript enums mirroring the backend
-├── docs/REFLECTION.md               Technical reflection answers
+├── docker/                          Dockerfiles, nginx config, entrypoint, smoke test (docker-compose.yml at the root)
+├── .github/workflows/               ci.yml (tests, lint, build), docker.yml (Compose build + smoke test)
+├── docs/
+│   ├── openapi.yaml                 OpenAPI 3.1 API spec
+│   └── REFLECTION.md                Technical reflection answers
 └── PLAN.md                          Implementation checklist, decisions log, requirements traceability
 ```
 
@@ -380,15 +413,16 @@ The full log, with dates, is in [`PLAN.md`](PLAN.md#open-questions--decisions-lo
 
 ## Known limitations & future improvements
 
-- **No Docker setup, CI pipeline or deployment.** Next steps would be a GitHub Actions workflow (backend tests +
-  Pint, frontend tests + build) and Docker Compose (php-fpm + nginx + MySQL, serving the SPA on the same origin).
+- **No deployment.** The Docker setup is for local review (demo credentials, seeded demo user). Production would
+  need real secrets, HTTPS and a non-demo seeding policy.
+- **The OpenAPI spec is hand-written**, so it can drift from the code. Generating it, or testing responses
+  against it, would keep the two in sync.
 - **The UI loads the full list.** The API supports pagination, but with 12 records the UI doesn't use it. A larger
   dataset would need a paginator wired to `page`/`perPage`.
 - **Pagination `meta` keys are snake_case** (`current_page`, Laravel's default), unlike the camelCase record fields.
 - **Search uses `LIKE`.** User input is a bound parameter, but `%` and `_` act as wildcards. Full-text search or
   escaping would be the next step.
 - **No roles or per-user ownership.** Adding an `owner_id` and a `ProjectPolicy` would be straightforward.
-- **No API docs file.** An OpenAPI spec or Postman collection would complement the reference above.
 - **End-to-end tests aren't committed.** The full flow was checked with a headless-browser smoke test (Playwright)
   against Laravel + MySQL. Committing it as a Playwright suite would guard against regressions.
 
@@ -401,6 +435,9 @@ This project was built with **Claude Code** (Anthropic) as an AI pair programmer
 - read the assessment and draft the plan, checklist and requirements traceability matrix (`PLAN.md`, `CLAUDE.md`)
 - scaffold the Laravel and Angular apps, and write application code, tests and documentation
 - run the test suites, builds, linters and browser smoke tests during development
+- for the optional extras (Docker, CI, OpenAPI spec), run as one orchestrating session plus parallel subagents,
+  one per task with its own files. The main session reviewed each result, re-ran the checks and made the commits
+  ([`PLAN.md` §8.0](PLAN.md#80-working-model--one-orchestrator-several-subagents))
 
 I made the design decisions (logged with dates in [`PLAN.md`](PLAN.md#open-questions--decisions-log)), and I
 reviewed every change before committing. Each feature was checked against `REQUIREMENTS.md` and verified with

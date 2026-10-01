@@ -58,9 +58,10 @@ was tested.
 
 ## 5. What would you improve with more time?
 
-- A CI pipeline (GitHub Actions) and Docker Compose, so a reviewer runs one command
 - Pagination in the UI (the API already supports it) and escaping `LIKE` wildcards in search
-- An OpenAPI spec generated from the Form Requests and Resources
+- Generating the OpenAPI spec from the Form Requests and Resources (it's hand-written now), or contract-testing
+  responses against it
+- A deployment pipeline on top of the existing CI and Docker setup
 - Per-user ownership with a `ProjectPolicy`, if the product needed multiple teams
 - Committing the Playwright smoke test as a real end-to-end suite
 
@@ -70,5 +71,6 @@ I used **Claude Code** throughout, as a pair programmer: for planning, scaffoldi
 the test suites and browser checks, and drafting these docs. I kept control of the decisions (each one is logged in
 `PLAN.md` with its date), and I wrote down the conventions the assistant had to follow in `CLAUDE.md`. Examples:
 enums for constant sets, a test for every rule, check each change against the assessment files. I reviewed each
-change before committing it. The AI was most useful for speed and for thorough test coverage. My job was keeping it
+change before committing it. For the optional extras (Docker, CI, OpenAPI), one main session split the work across
+parallel subagents, each owning separate files; it reviewed their output and re-ran the checks before committing. The AI was most useful for speed and for thorough test coverage. My job was keeping it
 on the spec and making the trade-off calls.
