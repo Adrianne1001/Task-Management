@@ -52,6 +52,7 @@ Validation 10% · Communication 5%. Quality over quantity.
 - Thin controllers; query/filter logic in a service class. camelCase in the API, snake_case in the DB.
 - Every endpoint and validation rule has a feature test. Run tests before marking an item done.
 - Commit on the `devsite` branch; PR to `main`. Don't commit `.env`, `vendor/`, `node_modules/`.
+- Commit messages and PR descriptions carry **no AI attribution** (no `Co-Authored-By: Claude`, no "Generated with Claude Code"). AI use is disclosed in the README instead.
 
 ## Common commands
 
