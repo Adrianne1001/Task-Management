@@ -153,8 +153,9 @@ Every requirement below must map to code + a test before submission.
   - [ ] Overview & features (core + bonus)
   - [ ] Tech stack & prerequisites (PHP 8.3, Composer, Node 22, MySQL)
   - [ ] Setup & run instructions — copy-paste ready, two paths:
-    - [ ] **Quick start (SQLite, recommended for reviewers):** `DB_CONNECTION=sqlite`, touch `database/database.sqlite`, migrate+seed
-    - [ ] **Full setup (MySQL, primary):** create DB + least-privilege user (SQL snippet), migrate+seed
+    - [ ] **Full setup (MySQL, primary — listed first):** MySQL 9.1 via WAMP (or any MySQL 8+); create DB + least-privilege user (SQL snippet), migrate+seed
+    - [ ] **Quick start (SQLite, optional):** `DB_CONNECTION=sqlite`, touch `database/database.sqlite`, migrate+seed
+    - [ ] Clear note to the reviewer: the app is **built and intended to run on MySQL**; the SQLite option exists **only for their convenience** when testing, and the same migrations/seeders run on MySQL (WAMP) unchanged
   - [ ] Running tests
   - [ ] API reference table (method, path, body, responses, error format examples)
   - [ ] Architecture overview + folder structure
@@ -180,7 +181,7 @@ Every requirement below must map to code + a test before submission.
 | Q4 | Start/Due dates required, or optional (spec only requires names)? | **Both optional (nullable)**; due ≥ start enforced only when both present (2026-10-01) |
 | Q5 | Docker / CI / deployment in scope? | _default: optional extras, after core is done_ |
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
-| Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite** (2026-10-01) |
+| Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite**. README must state SQLite is a reviewer convenience only; MySQL (WAMP) is the intended database (2026-10-01) |
 
 ## Progress Log
 
