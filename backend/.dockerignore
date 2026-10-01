@@ -1,0 +1,39 @@
+# Build context for docker/php/Dockerfile. Keep secrets, local state and dev-only files out of the image.
+.git
+.gitignore
+.gitattributes
+.editorconfig
+.env
+.env.*
+.phpunit.result.cache
+.phpunit.cache
+phpunit.xml
+pint.json
+README.md
+auth.json
+
+# Installed in the image (composer install --no-dev).
+vendor
+node_modules
+public/build
+public/hot
+public/storage
+
+# Tests and local databases are not shipped.
+tests
+database/*.sqlite
+database/*.sqlite-journal
+
+# Caches generated on the developer machine (may list dev packages or hold a cached local config).
+bootstrap/cache/*.php
+
+# Runtime state; the Dockerfile recreates the directories.
+storage/logs/*
+storage/pail
+storage/app/private/*
+storage/app/public/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/*.key

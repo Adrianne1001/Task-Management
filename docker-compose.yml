@@ -1,0 +1,104 @@
+# One-command local run of the whole app:
+#
+#   docker compose up -d --build      ->  http://localhost:8080   (demo@example.com / password)
+#   docker compose down -v            ->  stop and delete the database + storage volumes
+#
+# LOCAL REVIEW ONLY. Every credential below is an obviously-demo default, and the demo user is seeded on every
+# start. Override with environment variables or a root .env file (e.g. DB_PASSWORD, APP_KEY, WEB_PORT), and never
+# deploy this file as-is.
+#
+#   web  nginx: serves the Angular build and passes /api + /sanctum to php-fpm -> one origin, as in dev (Q16)
+#   app  Laravel 12 on PHP 8.3-FPM: migrates, seeds and caches config on start
+#   db   MySQL 9.1 (the version used in development); not published to the host
+
+name: client-project-tracker
+
+services:
+  db:
+    image: mysql:9.1
+    environment:
+      # No usable root login; the app gets a user scoped to its own database only.
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: client_project_tracker
+      MYSQL_USER: cpt_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:-local-review-only}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # TCP (not the socket) so it only passes once the init scripts are done and the real server is listening.
+      test: ["CMD-SHELL", "mysql -h 127.0.0.1 -u\"$$MYSQL_USER\" -p\"$$MYSQL_PASSWORD\" -e 'SELECT 1' \"$$MYSQL_DATABASE\" > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: ../docker/php/Dockerfile
+      additional_contexts:
+        docker: ./docker/php
+    environment:
+      APP_NAME: Client Project Tracker
+      APP_ENV: production
+      APP_DEBUG: "false"
+      # Empty = generated on first start and kept in the app-storage volume (see docker/php/entrypoint.sh).
+      APP_KEY: ${APP_KEY:-}
+      APP_URL: http://localhost:${WEB_PORT:-8080}
+      # Same origin as the API; CORS is not involved but stays locked to it.
+      FRONTEND_URL: http://localhost:${WEB_PORT:-8080}
+      # Sanctum uses session cookies only for requests whose Referer/Origin host:port is listed here.
+      SANCTUM_STATEFUL_DOMAINS: localhost:${WEB_PORT:-8080},127.0.0.1:${WEB_PORT:-8080}
+      SESSION_DRIVER: database
+      SESSION_LIFETIME: "120"
+      SESSION_ENCRYPT: "true"
+      # "null" = host-only cookies, so both http://localhost and http://127.0.0.1 work.
+      SESSION_DOMAIN: "null"
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: client_project_tracker
+      DB_USERNAME: cpt_app
+      DB_PASSWORD: ${DB_PASSWORD:-local-review-only}
+      SEED_DATABASE: ${SEED_DATABASE:-true}
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Healthy once php-fpm listens, which happens only after migrations and seeding succeeded.
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/web/Dockerfile
+      additional_contexts:
+        nginx: ./docker/web
+    ports:
+      # Loopback only: nothing is exposed to the network.
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  app-storage:

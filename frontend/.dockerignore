@@ -1,0 +1,17 @@
+# Build context for docker/web/Dockerfile. Dependencies are installed with npm ci inside the image.
+.git
+.gitignore
+.editorconfig
+.vscode
+.idea
+.env
+.env.*
+README.md
+
+node_modules
+dist
+out-tsc
+coverage
+.angular
+tmp
+*.log
