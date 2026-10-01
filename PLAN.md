@@ -40,20 +40,20 @@ Every requirement below must map to code + a test before submission.
 
 ## 1. Repository & Environment Setup
 
-- [ ] Confirm repo layout (monorepo): `/backend` (Laravel), `/frontend` (Angular), root `README.md`, `PLAN.md`, `CLAUDE.md`, `docs/`
-- [ ] Root `.gitignore` / `.editorconfig` (LF, 4-space PHP, 2-space TS)
-- [ ] Copy `test_data.json` into `backend/database/data/projects.json` (unchanged)
-- [ ] Create MySQL database `client_project_tracker` + dedicated DB user (least privilege, not root)
-- [ ] Install Angular CLI (`npx @angular/cli` or global) — currently not installed
+- [~] Confirm repo layout (monorepo) — `/backend` done, `/frontend` pending (§7): `/backend` (Laravel), `/frontend` (Angular), root `README.md`, `PLAN.md`, `CLAUDE.md`, `docs/`
+- [x] Root `.gitignore` / `.editorconfig` / `.gitattributes` (LF, 4-space PHP, 2-space TS)
+- [x] Copy `test_data.json` into `backend/database/data/projects.json` (unchanged)
+- [ ] Create MySQL database `client_project_tracker` + dedicated DB user `cpt_app` (least privilege, not root) — **blocked: WAMP MySQL not running**
+- [x] Angular CLI: use `npx @angular/cli` at scaffold time (no global install needed)
 - [ ] Work on `devsite` branch; small, descriptive commits per phase; PR to `main` at the end
 
 ## 2. Backend — Laravel Scaffold & Config
 
-- [ ] `composer create-project laravel/laravel backend` (Laravel 12)
-- [ ] `php artisan install:api` (adds `routes/api.php` + Sanctum)
-- [ ] `.env` / `.env.example`: MySQL connection, `APP_DEBUG=false` in example for prod notes, `FRONTEND_URL`
-- [ ] API served under `/api` → `/api/projects` (Q1); README states base URL clearly
-- [ ] Code style: Laravel Pint configured; `strict_types` in app code
+- [x] `composer create-project laravel/laravel backend` (Laravel 12.69.3)
+- [x] `php artisan install:api` (adds `routes/api.php` + Sanctum); removed unused `personal_access_tokens` migration (cookie auth, not tokens)
+- [x] `.env` / `.env.example`: MySQL connection, `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN`, encrypted sessions; SQLite file removed
+- [x] API served under `/api` → `/api/projects` (Q1); README states base URL clearly
+- [x] Code style: Laravel Pint (`pint.json`); `declare(strict_types=1)` added manually to new `app/` files
 
 ## 3. Backend — Domain: Enums, Migration, Model, Seeders
 
@@ -99,7 +99,7 @@ Every requirement below must map to code + a test before submission.
   - Anything else → 500 generic message (no stack traces / SQL leaked when `APP_DEBUG=false`)
 - [ ] Force JSON responses for API routes (middleware setting `Accept: application/json`)
 - [ ] Rate limiting: `throttle:api` (e.g. 60 req/min per IP/user), stricter on login
-- [ ] CORS (`config/cors.php`): only the Angular origin (`FRONTEND_URL`), only needed methods/headers — no `*`
+- [x] CORS (`config/cors.php`): only the Angular origin (`FRONTEND_URL`), only needed methods/headers — no `*`
 - [ ] Security headers middleware: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP for API responses
 - [ ] Mass-assignment protection (`$fillable`), Eloquent/bound params only (no raw SQL with input), whitelisted sort columns
 - [ ] Input hardening: max lengths, strict date format, reject unknown enum values, `trim` (default middleware)
@@ -181,3 +181,4 @@ Every requirement below must map to code + a test before submission.
 ## Progress Log
 
 - 2026-10-01 — Read assessment, created `PLAN.md` and `CLAUDE.md`; decided Q1–Q4.
+- 2026-10-01 — §1/§2: repo config files, Laravel 12 + Sanctum scaffolded, MySQL env, CORS locked down, seed data copied. DB creation waiting on MySQL service.
