@@ -116,7 +116,8 @@ Every requirement below must map to code + a test before submission.
 - [ ] Filter / search / sort tests; invalid sort column rejected
 - [ ] Auth tests: 401 on projects without session, login success/failure, logout, login throttling
 - [ ] Unit tests for enums (`values()`, `from()` failure)
-- [ ] Test DB: separate MySQL test DB (or SQLite in-memory) configured in `phpunit.xml`
+- [x] Test DB: SQLite in-memory configured in `phpunit.xml` (Q7) — reviewers can run tests with zero DB setup
+- [ ] Portability check: full suite + `migrate:fresh --seed` pass on both SQLite and MySQL; no raw MySQL-only SQL
 
 ## 7. Frontend — Angular
 
@@ -151,7 +152,9 @@ Every requirement below must map to code + a test before submission.
 - [ ] Root `README.md`:
   - [ ] Overview & features (core + bonus)
   - [ ] Tech stack & prerequisites (PHP 8.3, Composer, Node 22, MySQL)
-  - [ ] Setup & run instructions (backend, DB create, migrate+seed, frontend) — copy-paste ready
+  - [ ] Setup & run instructions — copy-paste ready, two paths:
+    - [ ] **Quick start (SQLite, recommended for reviewers):** `DB_CONNECTION=sqlite`, touch `database/database.sqlite`, migrate+seed
+    - [ ] **Full setup (MySQL, primary):** create DB + least-privilege user (SQL snippet), migrate+seed
   - [ ] Running tests
   - [ ] API reference table (method, path, body, responses, error format examples)
   - [ ] Architecture overview + folder structure
@@ -177,6 +180,7 @@ Every requirement below must map to code + a test before submission.
 | Q4 | Start/Due dates required, or optional (spec only requires names)? | **Both optional (nullable)**; due ≥ start enforced only when both present (2026-10-01) |
 | Q5 | Docker / CI / deployment in scope? | _default: optional extras, after core is done_ |
 | Q6 | Test runner: Pest vs PHPUnit | _default: PHPUnit (Laravel default)_ |
+| Q7 | MySQL vs SQLite? | **MySQL is primary (dev + docs); code stays DB-agnostic (Eloquent/schema builder only); SQLite quick-start for reviewers; tests on in-memory SQLite** (2026-10-01) |
 
 ## Progress Log
 
