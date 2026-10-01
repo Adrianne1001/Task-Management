@@ -1,0 +1,21 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<mat-toolbar class="app-toolbar">
+  <a class="brand" routerLink="/projects">
+    <mat-icon aria-hidden="true">folder_shared</mat-icon>
+    <span>Client Project Tracker</span>
+  </a>
+
+  @if (auth.user(); as user) {
+    <span class="spacer"></span>
+    <span class="user-name">{{ user.name }}</span>
+    <button mat-button type="button" (click)="logout()">
+      <mat-icon aria-hidden="true">logout</mat-icon>
+      Sign out
+    </button>
+  }
+</mat-toolbar>
+
+<main id="main-content" class="app-content" tabindex="-1">
+  <router-outlet />
+</main>

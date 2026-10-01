@@ -1,0 +1,111 @@
+<header class="page-header">
+  <h1>{{ isEdit() ? 'Edit project' : 'New project' }}</h1>
+</header>
+
+@let load = loadState();
+
+@if (load.status === 'loading') {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading project" />
+} @else if (load.status === 'error') {
+  <div class="state" role="alert">
+    <mat-icon aria-hidden="true">{{ load.notFound ? 'search_off' : 'error_outline' }}</mat-icon>
+    <p>{{ load.message }}</p>
+    <a mat-stroked-button routerLink="/projects">Back to projects</a>
+  </div>
+} @else {
+  <form class="project-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (formError(); as message) {
+      <div class="form-error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <span>{{ message }}</span>
+      </div>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Client name</mat-label>
+      <input
+        matInput
+        formControlName="clientName"
+        autocomplete="organization"
+        required
+        [maxlength]="limits.clientName"
+      />
+      <mat-error>{{ errorFor('clientName') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Project name</mat-label>
+      <input
+        matInput
+        formControlName="projectName"
+        autocomplete="off"
+        required
+        [maxlength]="limits.projectName"
+      />
+      <mat-error>{{ errorFor('projectName') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Description</mat-label>
+      <textarea
+        matInput
+        formControlName="description"
+        rows="4"
+        [maxlength]="limits.description"
+      ></textarea>
+      <mat-hint align="end">{{ descriptionLength() }} / {{ limits.description }}</mat-hint>
+      <mat-error>{{ errorFor('description') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status" required>
+        @for (status of statuses; track status) {
+          <mat-option [value]="status">{{ status }}</mat-option>
+        }
+      </mat-select>
+      <mat-error>{{ errorFor('status') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Priority</mat-label>
+      <mat-select formControlName="priority" required>
+        @for (priority of priorities; track priority) {
+          <mat-option [value]="priority">{{ priority }}</mat-option>
+        }
+      </mat-select>
+      <mat-error>{{ errorFor('priority') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Start date</mat-label>
+      <input matInput formControlName="startDate" [matDatepicker]="startPicker" />
+      <mat-hint>Optional</mat-hint>
+      <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
+      <mat-datepicker #startPicker />
+      <mat-error>{{ errorFor('startDate') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Due date</mat-label>
+      <input
+        matInput
+        formControlName="dueDate"
+        [matDatepicker]="duePicker"
+        [min]="startDate()"
+        [errorStateMatcher]="dueDateMatcher"
+      />
+      <mat-hint>Optional · not before the start date</mat-hint>
+      <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
+      <mat-datepicker #duePicker />
+      <mat-error>{{ errorFor('dueDate') }}</mat-error>
+    </mat-form-field>
+
+    <div class="actions span-2">
+      <a mat-button routerLink="/projects">Cancel</a>
+      <button mat-flat-button type="submit" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create project' }}
+      </button>
+    </div>
+  </form>
+}

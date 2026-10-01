@@ -1,0 +1,41 @@
+<section class="login-card" aria-labelledby="login-title">
+  <h1 id="login-title">Sign in</h1>
+  <p class="subtitle">Track your agency's client projects.</p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (error(); as message) {
+      <div class="form-error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <span>{{ message }}</span>
+      </div>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" autocomplete="username" required />
+      <mat-error>
+        @if (form.controls.email.hasError('required')) {
+          Email is required.
+        } @else {
+          Enter a valid email address.
+        }
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input
+        matInput
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+        required
+      />
+      <mat-error>Password is required.</mat-error>
+    </mat-form-field>
+
+    <button mat-flat-button type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+</section>
