@@ -46,7 +46,7 @@ Every requirement below must map to code + a test before submission.
 - [x] Create MySQL database `client_project_tracker` (utf8mb4) + dedicated DB user `cpt_app` (grants on that DB only; random password in `.env`) on WAMP MySQL 9.1 @ 3306
 - [x] Force `InnoDB` engine in `config/database.php` (WAMP defaults to MyISAM → no transactions/FKs, 1000-byte key limit broke migrations)
 - [x] Angular CLI: use `npx @angular/cli` at scaffold time (no global install needed)
-- [ ] Work on `devsite` branch; small, descriptive commits per phase; PR to `main` at the end
+- [~] Work on `devsite` branch; small, descriptive commits per phase; PR to `main` at the end — ongoing convention; PR happens in §9
 
 ## 2. Backend — Laravel Scaffold & Config
 
