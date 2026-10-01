@@ -7,10 +7,12 @@ namespace Tests\Feature\Api;
 use App\Models\Project;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\AuthenticatesUser;
 use Tests\TestCase;
 
 class ProjectValidationTest extends TestCase
 {
+    use AuthenticatesUser;
     use RefreshDatabase;
 
     /**

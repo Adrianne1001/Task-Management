@@ -11,6 +11,7 @@ use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\AuthenticatesUser;
 use Tests\TestCase;
 
 /**
@@ -18,6 +19,7 @@ use Tests\TestCase;
  */
 class ProjectIndexQueryTest extends TestCase
 {
+    use AuthenticatesUser;
     use RefreshDatabase;
 
     protected function setUp(): void

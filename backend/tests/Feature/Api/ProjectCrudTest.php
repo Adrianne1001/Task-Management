@@ -9,10 +9,12 @@ use App\Enums\ProjectStatus;
 use App\Models\Project;
 use Database\Seeders\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\AuthenticatesUser;
 use Tests\TestCase;
 
 class ProjectCrudTest extends TestCase
 {
+    use AuthenticatesUser;
     use RefreshDatabase;
 
     private const RESOURCE_KEYS = [
