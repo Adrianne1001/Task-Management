@@ -118,7 +118,7 @@ Every requirement below must map to code + a test before submission.
 - [x] Auth tests (`AuthTest`): 401 on every protected endpoint without a session, login success/wrong password/missing + malformed fields, `me`, logout, login throttling (6th attempt → 429, even with the right password); `ErrorHandlingTest` (404/405/422/429/500 envelopes, JSON without `Accept`), `SecurityHeadersTest`; existing API tests sign in via `Tests\Concerns\AuthenticatesUser`
 - [x] Unit tests for enums (`values()`, `from()` failure) — `tests/Unit/Enums/EnumTest.php`
 - [x] Test DB: SQLite in-memory configured in `phpunit.xml` (Q7) — reviewers can run tests with zero DB setup
-- [ ] Portability check: full suite + `migrate:fresh --seed` pass on both SQLite and MySQL; no raw MySQL-only SQL
+- [x] Portability check: 133/133 tests pass on in-memory SQLite **and** MySQL 9.1 (separate `client_project_tracker_test` DB, same least-privilege grants for `cpt_app`; run with `DB_CONNECTION=mysql DB_DATABASE=client_project_tracker_test php artisan test` — shell env beats `phpunit.xml`'s non-forced `<env>`); `migrate:fresh --seed` → 12 projects + 1 user on MySQL and on a SQLite file; only raw SQL is the bound ANSI `CASE` in `ProjectService::applySort()` (portable). README §9 should mention the MySQL test command
 
 ## 7. Frontend — Angular
 
@@ -199,3 +199,4 @@ Every requirement below must map to code + a test before submission.
 - 2026-10-01 — §3 done: enums (+ sort field/direction), `projects` migration, `Project` model, factory, `ProjectSeeder` (upsert on id) + `DemoUserSeeder`; 18 tests green; `migrate:fresh --seed` verified on MySQL. Next: §4 API layer.
 - 2026-10-02 — §4 done on `feature/backend-API-Layer`: explicit project routes, thin `ProjectController` + `ProjectService`, `ProjectRequest` (store/update), `IndexProjectRequest` → `ProjectFilters`, `ProjectResource`, search/filter/sort/opt-in pagination, `GET /api/meta/enums`; 107 tests green (SQLite), Pint clean, sort/search queries verified on MySQL. Next: §5 security & error handling.
 - 2026-10-02 — §5 done on `feature/security`: `ApiExceptionRenderer` (uniform JSON errors, no leaks), `ForceJsonResponse`, `SecurityHeaders`, `api`/`login` rate limiters, Sanctum SPA auth (`AuthController` login/logout/me) with all data routes behind `auth:sanctum`; 133 tests green, Pint clean, cookie+CSRF flow verified live on MySQL. Next: §6 portability check, then §7 frontend.
+- 2026-10-02 — §6 done on `feature/backend-tests`: portability check — full suite green on SQLite and MySQL (`client_project_tracker_test`), `migrate:fresh --seed` verified on both. Next: §7 frontend on `feature/frontend`.
