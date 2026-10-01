@@ -43,7 +43,8 @@ Every requirement below must map to code + a test before submission.
 - [~] Confirm repo layout (monorepo) — `/backend` done, `/frontend` pending (§7): `/backend` (Laravel), `/frontend` (Angular), root `README.md`, `PLAN.md`, `CLAUDE.md`, `docs/`
 - [x] Root `.gitignore` / `.editorconfig` / `.gitattributes` (LF, 4-space PHP, 2-space TS)
 - [x] Copy `test_data.json` into `backend/database/data/projects.json` (unchanged)
-- [ ] Create MySQL database `client_project_tracker` + dedicated DB user `cpt_app` (least privilege, not root) — **blocked: WAMP MySQL not running**
+- [x] Create MySQL database `client_project_tracker` (utf8mb4) + dedicated DB user `cpt_app` (grants on that DB only; random password in `.env`) on WAMP MySQL 9.1 @ 3306
+- [x] Force `InnoDB` engine in `config/database.php` (WAMP defaults to MyISAM → no transactions/FKs, 1000-byte key limit broke migrations)
 - [x] Angular CLI: use `npx @angular/cli` at scaffold time (no global install needed)
 - [ ] Work on `devsite` branch; small, descriptive commits per phase; PR to `main` at the end
 
@@ -187,3 +188,4 @@ Every requirement below must map to code + a test before submission.
 
 - 2026-10-01 — Read assessment, created `PLAN.md` and `CLAUDE.md`; decided Q1–Q4.
 - 2026-10-01 — §1/§2: repo config files, Laravel 12 + Sanctum scaffolded, MySQL env, CORS locked down, seed data copied. DB creation waiting on MySQL service.
+- 2026-10-01 — MySQL DB + `cpt_app` user created; InnoDB forced; default migrations run on MySQL.
