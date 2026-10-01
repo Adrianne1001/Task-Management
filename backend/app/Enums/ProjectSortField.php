@@ -34,4 +34,19 @@ enum ProjectSortField: string
             self::DueDate => 'due_date',
         };
     }
+
+    /**
+     * For enum-backed fields, the values in their natural order (e.g. Low,
+     * Medium, High) so sorting is meaningful rather than alphabetical.
+     *
+     * @return list<string>|null
+     */
+    public function orderedValues(): ?array
+    {
+        return match ($this) {
+            self::Status => ProjectStatus::values(),
+            self::Priority => ProjectPriority::values(),
+            default => null,
+        };
+    }
 }

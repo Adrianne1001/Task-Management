@@ -63,6 +63,14 @@ class EnumTest extends TestCase
         }
     }
 
+    public function test_enum_sort_fields_expose_their_natural_order(): void
+    {
+        $this->assertSame(ProjectStatus::values(), ProjectSortField::Status->orderedValues());
+        $this->assertSame(ProjectPriority::values(), ProjectSortField::Priority->orderedValues());
+        $this->assertNull(ProjectSortField::ClientName->orderedValues());
+        $this->assertNull(ProjectSortField::DueDate->orderedValues());
+    }
+
     public function test_sort_direction_values(): void
     {
         $this->assertSame(['asc', 'desc'], SortDirection::values());
